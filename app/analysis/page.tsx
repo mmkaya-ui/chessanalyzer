@@ -315,15 +315,27 @@ export default function AnalysisPage() {
         }
     };
 
-    // Debug: Log all clicks globally to see what's capturing them
+    // Debug: Log all clicks and mouse movements globally
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
             console.log("Global Click:", target.tagName, target.className || target.id);
             setLastLog(`Global Click: <${target.tagName}> ${target.className?.slice(0, 10)}...`);
         };
+
+        const handleMouseMove = (e: MouseEvent) => {
+            const tracker = document.getElementById('mouse-tracker');
+            if (tracker) {
+                tracker.innerText = `Mouse: ${e.clientX}, ${e.clientY}`;
+            }
+        };
+
         window.addEventListener('click', handleClick);
-        return () => window.removeEventListener('click', handleClick);
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => {
+            window.removeEventListener('click', handleClick);
+            window.removeEventListener('mousemove', handleMouseMove);
+        };
     }, []);
 
     return (
@@ -385,7 +397,19 @@ export default function AnalysisPage() {
                     )}
 
                     {/* Board Container - No Overlays */}
-                    <div className="relative" style={{ zIndex: 0 }}>
+                    <div
+                        className="relative"
+                        style={{ zIndex: 0 }}
+                        onDragOver={(e) => {
+                            e.preventDefault(); // Native HTML5 DND requires this to allow dropping
+                            console.log("Native DragOver");
+                        }}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            console.log("Native Drop", e.clientX, e.clientY);
+                            setLastLog(`Native Drop at ${e.clientX},${e.clientY}`);
+                        }}
+                    >
                         <ChessboardWrapper
                             fen={fen}
                             onMove={onDrop}
@@ -399,8 +423,9 @@ export default function AnalysisPage() {
                     </div>
 
                     {/* Debug Log Below Board */}
-                    <div className="mt-4 text-[10px] text-slate-500 font-mono">
-                        Debug: {lastLog}
+                    <div className="mt-4 text-[10px] text-slate-500 font-mono bg-black/20 p-2 rounded">
+                        <div>Last Action: {lastLog}</div>
+                        <div id="mouse-tracker" className="text-yellow-500">Mouse: Waiting...</div>
                     </div>
                 </div>
 
