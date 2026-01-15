@@ -126,6 +126,10 @@ export default function AnalysisPage() {
         }
     };
 
+    const onDragStart = (piece: string, sourceSquare: string) => {
+        console.log(`Drag started: ${piece} from ${sourceSquare}`);
+    };
+
     const onDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
         // alert(`DEBUG: Attempting ${piece} from ${sourceSquare} to ${targetSquare}`);
         // DEBUGGING: Forced God Mode for everything.
@@ -244,6 +248,7 @@ export default function AnalysisPage() {
                     <ChessboardWrapper
                         fen={fen}
                         onMove={onDrop}
+                        onPieceDragBegin={onDragStart}
                         onSquareRightClick={onRightClick}
                         boardWidth={boardWidth}
                         orientation={orientation}
