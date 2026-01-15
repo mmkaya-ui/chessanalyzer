@@ -9,6 +9,7 @@ const ChessboardWrapper = dynamic(() => import("@/components/ChessboardWrapper")
 import AnalysisPanel from "@/components/AnalysisPanel";
 import UploadZone from "@/components/UploadZone";
 import SparePieces from "@/components/SparePieces";
+import ModelUploader from "@/components/ModelUploader";
 import { Chess, Square } from "chess.js";
 import { ArrowLeft, RefreshCw, AlertTriangle, Trash2, X } from "lucide-react";
 import Link from "next/link";
@@ -182,32 +183,70 @@ export default function AnalysisPage() {
     };
 
     const onSquareClick = (square: string) => {
-        // 1. If we have a spare piece selected, place it
+        setLastLog(`Click: ${square}`);
+
+        // 1. SPARE PLACEMENT
         if (selectedSpare) {
             const gameCopy = new Chess(gameRef.current.fen());
             const color = selectedSpare[0] as "w" | "b";
             const type = selectedSpare[1].toLowerCase() as any;
 
-            // Remove whatever was there first (overwrite)
             gameCopy.remove(square as Square);
             gameCopy.put({ type, color }, square as Square);
 
             gameRef.current = gameCopy;
             setFen(gameCopy.fen());
-            // Don't clear spare selection so we can multi-place
             return;
         }
 
-        // 2. If clicking same square, deselect
-        if (selectedSquare === square) {
-            setSelectedSquare(null);
-            return;
+        // 2. MOVE LOGIC (Click-Move)
+        // If we already have a square selected...
+        if (selectedSquare) {
+            // If clicking the SAME square, deselect
+            if (selectedSquare === square) {
+                setSelectedSquare(null);
+                return;
+            }
+
+            // If clicking a NEW square, try to move there!
+            // We use the same 'God Mode' logic: Force Move.
+
+            // Check if source has a piece
+            const sourcePiece = gameRef.current.get(selectedSquare as Square);
+            if (!sourcePiece) {
+                // Should not happen if logic is correct, but safety check
+                setSelectedSquare(square);
+                return;
+            }
+
+            // FORCE MOVE (A -> B)
+            try {
+                const gameCopy = new Chess(gameRef.current.fen());
+
+                // Remove from A
+                gameCopy.remove(selectedSquare as Square);
+                // Put on B (using source piece info)
+                gameCopy.put({ type: sourcePiece.type, color: sourcePiece.color }, square as Square);
+
+                gameRef.current = gameCopy;
+                setFen(gameCopy.fen());
+                setLastLog(`ClickMove: ${selectedSquare}->${square}`);
+
+                // Clear selection after move
+                setSelectedSquare(null);
+                return;
+            } catch (e) {
+                console.error("Click-Move failed", e);
+                // If failed, maybe they just wanted to select the new square?
+            }
         }
 
-        // 3. If clicking a square with a piece, select it (to show trash icon)
+        // 3. SELECTION
+        // If nothing selected (or move failed/skipped), select this square if it has a piece
         const piece = gameRef.current.get(square as Square);
         if (piece) {
             setSelectedSquare(square);
+            setLastLog(`Selected: ${square}`);
         } else {
             setSelectedSquare(null);
         }
@@ -290,7 +329,7 @@ export default function AnalysisPage() {
             </header>
 
             <main className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto w-full flex-1">
-                <div ref={containerRef} className="flex-1 flex flex-col items-center glass-panel p-6 lg:p-12 min-h-[500px] relative">
+                <div ref={containerRef} className="flex-1 flex flex-col items-center bg-slate-900/50 rounded-xl border border-slate-700 p-6 lg:p-12 min-h-[500px] relative">
                     {/* Control Toolbar - Moved relative to be clickable */}
                     <div className="flex gap-4 mb-4 z-50 bg-slate-800/80 p-2 rounded-lg border border-slate-700 shadow-xl backdrop-blur-sm">
                         <button
@@ -381,6 +420,8 @@ export default function AnalysisPage() {
                                 </button>
                             </div>
                         </div>
+
+                        <ModelUploader />
                         <UploadZone onImageSelected={handleImageSelected} />
 
                         <div className="mt-4 p-3 rounded bg-yellow-500/10 border border-yellow-500/20 flex items-start gap-2">
