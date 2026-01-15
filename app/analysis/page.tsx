@@ -23,17 +23,18 @@ export default function AnalysisPage() {
     const [boardWidth, setBoardWidth] = useState(480);
     const [arrows, setArrows] = useState<[string, string][]>([]);
 
+    // User preferences
+    const [orientation, setOrientation] = useState<"white" | "black">("white");
+    const [sideToMove, setSideToMove] = useState<"w" | "b">("w");
+
     const engineRef = useRef<ChessEngine | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Initialize Engine
     useEffect(() => {
         const engine = new ChessEngine((data) => {
-            // console.log("Engine msg:", data);
-
             // Parse Evaluation
             if (typeof data === 'string') {
-                // Example: info depth 10 ... score cp 50 ... pv e2e4 c7c5
                 if (data.startsWith("info") && data.includes("score cp")) {
                     const scoreMatch = data.match(/score cp (-?\d+)/);
                     if (scoreMatch) {
@@ -47,15 +48,12 @@ export default function AnalysisPage() {
                     }
                 }
 
-                // Parse Best Move
                 if (data.startsWith("bestmove")) {
                     const parts = data.split(" ");
-                    const move = parts[1]; // e.g., e2e4
+                    const move = parts[1];
                     if (move && move !== "(none)") {
                         setBestMove(move);
                         setIsAnalyzing(false);
-
-                        // Create arrow
                         const from = move.substring(0, 2);
                         const to = move.substring(2, 4);
                         setArrows([[from, to]]);
@@ -90,7 +88,6 @@ export default function AnalysisPage() {
     useEffect(() => {
         if (engineRef.current) {
             setIsAnalyzing(true);
-            // Small delay to allow UI to update
             const timeout = setTimeout(() => {
                 engineRef.current?.analyze(fen);
             }, 100);
@@ -103,15 +100,16 @@ export default function AnalysisPage() {
         setBestMove("Scanning...");
         setEvalScore("...");
 
-        // Use the Vision Service
         const detectedFen = await processBoardImage(file);
 
         if (detectedFen) {
             try {
+                // When we load a board, we should check whose turn it is
+                // For now, we update the game state
                 const newGame = new Chess(detectedFen);
                 setGame(newGame);
                 setFen(detectedFen);
-                // Analysis will trigger via useEffect
+                setSideToMove(newGame.turn()); // update UI to match FEN
             } catch (e) {
                 alert("Detected position was invalid. Please try another image.");
                 setIsAnalyzing(false);
@@ -133,6 +131,7 @@ export default function AnalysisPage() {
             if (move === null) return false;
 
             setFen(game.fen());
+            setSideToMove(game.turn());
             return true;
         } catch (e) {
             return false;
@@ -146,6 +145,35 @@ export default function AnalysisPage() {
         setArrows([]);
         setBestMove("-");
         setEvalScore("0.0");
+        setSideToMove("w");
+        setOrientation("white");
+    };
+
+    const toggleOrientation = () => {
+        setOrientation(prev => prev === "white" ? "black" : "white");
+    };
+
+    const toggleSideToMove = () => {
+        // To change side to move, we need to manipulate the FEN
+        const newSide = sideToMove === "w" ? "b" : "w";
+        const fenParts = fen.split(" ");
+        if (fenParts.length >= 2) {
+            fenParts[1] = newSide;
+            // We also need to reset en passant targets and move clocks usually, 
+            // but let's just keep them for now or reset en passant (-).
+            // Changing side often invalidates en passant.
+            if (fenParts.length >= 4) fenParts[3] = "-"; // En passant target
+
+            const newFen = fenParts.join(" ");
+            try {
+                const newGame = new Chess(newFen);
+                setGame(newGame);
+                setFen(newFen);
+                setSideToMove(newSide);
+            } catch (e) {
+                console.error("Invalid FEN after side swap", e);
+            }
+        }
     };
 
     return (
@@ -165,7 +193,10 @@ export default function AnalysisPage() {
 
                 {/* Left Column: Board */}
                 <div ref={containerRef} className="flex-1 flex flex-col items-center glass-panel p-6 lg:p-12 min-h-[500px] justify-center relative">
-                    <div className="absolute top-4 right-4 flex gap-2">
+                    <div className="absolute top-4 right-4 flex gap-2 z-10">
+                        <button onClick={toggleOrientation} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors border border-white/10 text-xs font-medium" title="Flip Board">
+                            Flip Board
+                        </button>
                         <button onClick={resetBoard} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors" title="Reset Board">
                             <RefreshCw className="w-5 h-5" />
                         </button>
@@ -174,17 +205,29 @@ export default function AnalysisPage() {
                         fen={fen}
                         onMove={onDrop}
                         boardWidth={boardWidth}
-                        customArrows={arrows} // We need to update Wrapper to accept this
+                        orientation={orientation}
+                        customArrows={arrows}
                     />
                 </div>
 
                 {/* Right Column: Tools */}
                 <div className="w-full lg:w-[400px] flex flex-col gap-6">
                     <div className="glass-panel p-4">
-                        <div className="mb-4 text-sm font-semibold text-slate-300 uppercase tracking-wide">
-                            Import Position
+                        <div className="mb-4 flex items-center justify-between">
+                            <div className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
+                                Setup
+                            </div>
+                            <button
+                                onClick={toggleSideToMove}
+                                className={`text-xs px-2 py-1 rounded border transition-colors ${sideToMove === 'w' ? 'bg-white text-black border-white' : 'bg-black text-white border-slate-600'}`}
+                            >
+                                {sideToMove === 'w' ? "White to Move" : "Black to Move"}
+                            </button>
                         </div>
                         <UploadZone onImageSelected={handleImageSelected} />
+                        <p className="text-xs text-slate-500 mt-2 text-center">
+                            *Auto-recognition is currently in simulation mode. Upload any image to see a sample board state.
+                        </p>
                     </div>
 
                     <div className="flex-1 min-h-[300px]">
