@@ -21,12 +21,12 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-main);
-  background-image:
+  /* background-image:
     radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
     radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
     radial-gradient(at 0% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
-  background-attachment: fixed;
+  background-attachment: fixed; */
   min-height: 100vh;
   overflow-x: hidden;
 }
