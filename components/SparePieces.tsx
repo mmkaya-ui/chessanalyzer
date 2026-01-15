@@ -30,13 +30,14 @@ export default function SparePieces({ onPieceSelect, selectedPiece }: SparePiece
                         <button
                             key={pieceCode}
                             onClick={() => onPieceSelect(pieceCode)}
-                            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${isSelected ? "bg-primary shadow-[0_0_15px_rgba(139,92,246,0.5)] scale-110" : "bg-white/5 hover:bg-white/10"}`}
+                            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all shrink-0 ${isSelected ? "bg-primary shadow-[0_0_15px_rgba(139,92,246,0.5)] scale-110" : "bg-white/5 hover:bg-white/10"}`}
                             title={`White ${p.name}`}
                         >
                             <img
                                 src={`https://images.chesscomfiles.com/chess-themes/pieces/neo/150/w${p.type}.png`}
                                 alt={p.name}
-                                className="w-8 h-8 pointer-events-none select-none"
+                                style={{ width: '32px', height: '32px' }}
+                                className="pointer-events-none select-none"
                             />
                         </button>
                     );
@@ -54,13 +55,14 @@ export default function SparePieces({ onPieceSelect, selectedPiece }: SparePiece
                         <button
                             key={pieceCode}
                             onClick={() => onPieceSelect(pieceCode)}
-                            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all ${isSelected ? "bg-primary shadow-[0_0_15px_rgba(139,92,246,0.5)] scale-110" : "bg-white/5 hover:bg-white/10"}`}
+                            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all shrink-0 ${isSelected ? "bg-primary shadow-[0_0_15px_rgba(139,92,246,0.5)] scale-110" : "bg-white/5 hover:bg-white/10"}`}
                             title={`Black ${p.name}`}
                         >
                             <img
                                 src={`https://images.chesscomfiles.com/chess-themes/pieces/neo/150/b${p.type}.png`}
                                 alt={p.name}
-                                className="w-8 h-8 pointer-events-none select-none"
+                                style={{ width: '32px', height: '32px' }}
+                                className="pointer-events-none select-none"
                             />
                         </button>
                     );

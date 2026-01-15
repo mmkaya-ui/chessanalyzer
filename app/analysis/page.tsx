@@ -329,66 +329,67 @@ export default function AnalysisPage() {
             </header>
 
             <main className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto w-full flex-1">
-                <div ref={containerRef} className="flex-1 flex flex-col items-center bg-slate-900/50 rounded-xl border border-slate-700 p-6 lg:p-12 min-h-[500px] relative">
-                    {/* Control Toolbar - Moved relative to be clickable */}
-                    <div className="flex gap-4 mb-4 z-50 bg-slate-800/80 p-2 rounded-lg border border-slate-700 shadow-xl backdrop-blur-sm">
+                <div ref={containerRef} className="flex-1 flex flex-col items-center bg-slate-900/50 rounded-xl border border-slate-700 p-4 lg:p-8 min-h-[500px]">
+
+                    {/* Control Toolbar - Standard Flex Flow (Not absolute) */}
+                    <div className="flex gap-4 mb-6 z-10 bg-slate-800 p-2 rounded-lg border border-slate-700 shadow-lg">
                         <button
                             onClick={toggleOrientation}
-                            className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-md text-slate-300 hover:text-white transition-all text-xs font-medium uppercase tracking-wider border border-white/5"
+                            className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-slate-200 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
                         >
                             <RefreshCw className="w-4 h-4" /> Flip
                         </button>
                         <button
                             onClick={resetBoard}
-                            className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-md text-slate-300 hover:text-white transition-all text-xs font-medium uppercase tracking-wider border border-white/5"
+                            className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-slate-200 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
                         >
                             <RefreshCw className="w-4 h-4 rotate-180" /> Reset
                         </button>
                         <button
                             onClick={clearBoard}
-                            className="flex items-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 rounded-md text-red-400 hover:text-red-300 transition-all text-xs font-medium uppercase tracking-wider border border-red-500/20"
+                            className="flex items-center gap-2 px-3 py-2 bg-red-900/50 hover:bg-red-800/50 rounded-md text-red-200 hover:text-red-100 transition-all text-xs font-bold uppercase tracking-wider border border-red-700/50"
                         >
                             <Trash2 className="w-4 h-4" /> Clear
                         </button>
                     </div>
 
-                    {/* Visual Debug Log */}
-                    <div className="absolute bottom-2 left-2 z-50 text-[10px] text-slate-500 font-mono bg-black/20 px-2 rounded">
-                        Debug: {lastLog}
-                    </div>
-
-                    {/* Selected Square Actions (Floating near top for now, or overlaid) */}
+                    {/* Selected Piece Actions (Only show if needed) */}
                     {selectedSquare && (
-                        <div className="absolute top-4 left-4 z-20 animate-fade-in">
-                            <div className="bg-slate-800 border border-slate-600 rounded-lg p-2 shadow-xl flex items-center gap-2">
-                                <span className="text-xs text-slate-300 font-medium px-1">Selected: {selectedSquare}</span>
-                                <button
-                                    onClick={removeSelectedPiece}
-                                    className="flex items-center gap-1 bg-red-500/20 hover:bg-red-500/40 text-red-300 px-2 py-1 rounded text-xs transition-colors"
-                                >
-                                    <Trash2 className="w-3 h-3" /> Remove
-                                </button>
-                                <button
-                                    onClick={() => setSelectedSquare(null)}
-                                    className="p-1 hover:bg-white/10 rounded text-slate-400"
-                                >
-                                    <X className="w-3 h-3" />
-                                </button>
-                            </div>
+                        <div className="mb-4 flex items-center gap-3 bg-slate-800 px-4 py-2 rounded-full border border-slate-600 animate-fade-in z-10">
+                            <span className="text-sm text-white font-medium">Selected: {selectedSquare}</span>
+                            <button
+                                onClick={removeSelectedPiece}
+                                className="flex items-center gap-1 bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded text-xs transition-colors font-bold"
+                            >
+                                <Trash2 className="w-3 h-3" /> Remove
+                            </button>
+                            <button
+                                onClick={() => setSelectedSquare(null)}
+                                className="p-1 hover:bg-slate-700 rounded-full text-slate-400"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
                         </div>
                     )}
 
-                    {/* Key prop ensures re-mount if weird state issues persist, but usually not needed */}
-                    <ChessboardWrapper
-                        fen={fen}
-                        onMove={onDrop}
-                        onPieceDragBegin={onDragStart}
-                        onSquareRightClick={onRightClick}
-                        onSquareClick={onSquareClick}
-                        boardWidth={boardWidth}
-                        orientation={orientation}
-                        customArrows={arrows}
-                    />
+                    {/* Board Container - No Overlays */}
+                    <div className="relative" style={{ zIndex: 0 }}>
+                        <ChessboardWrapper
+                            fen={fen}
+                            onMove={onDrop}
+                            onPieceDragBegin={onDragStart}
+                            onSquareRightClick={onRightClick}
+                            onSquareClick={onSquareClick}
+                            boardWidth={boardWidth}
+                            orientation={orientation}
+                            customArrows={arrows}
+                        />
+                    </div>
+
+                    {/* Debug Log Below Board */}
+                    <div className="mt-4 text-[10px] text-slate-500 font-mono">
+                        Debug: {lastLog}
+                    </div>
                 </div>
 
                 <div className="w-full lg:w-[400px] flex flex-col gap-6">
