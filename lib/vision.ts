@@ -19,6 +19,21 @@ export async function loadCustomModel(jsonFile: File, weightFiles: File[]) {
     }
 }
 
+// Try to load the local model automatically on startup
+if (typeof window !== 'undefined') {
+    (async () => {
+        try {
+            console.log("Attempting to auto-load local model...");
+            const modelUrl = '/models/tfjs_model/model.json';
+            // Check if file exists (simple HEAD request or just try loading)
+            loadedModel = await tf.loadGraphModel(modelUrl);
+            console.log("Auto-loaded local model from /models/tfjs_model/");
+        } catch (e) {
+            console.log("No local model found (or failed to load). Using Demo/Upload mode.");
+        }
+    })();
+}
+
 export async function processBoardImage(imageFile: File): Promise<string | null> {
 
     // 1. If we have a Real Model loaded, use it!
