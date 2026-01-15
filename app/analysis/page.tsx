@@ -127,58 +127,37 @@ export default function AnalysisPage() {
     };
 
     const onDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
-        console.log(`Drop attempt: ${sourceSquare} -> ${targetSquare} (${piece})`);
+        // alert(`DEBUG: Attempting ${piece} from ${sourceSquare} to ${targetSquare}`);
+        // DEBUGGING: Forced God Mode for everything.
+
         try {
-            // 1. Try Standard Move (Game Logic)
             const gameCopy = new Chess(gameRef.current.fen());
 
-            let move = null;
-            try {
-                move = gameCopy.move({
-                    from: sourceSquare,
-                    to: targetSquare,
-                    promotion: "q",
-                });
-            } catch (err) {
-                // Expected for illegal moves
-            }
+            // 1. Remove from source
+            gameCopy.remove(sourceSquare as Square);
 
-            if (move) {
-                console.log("Legal move executed");
-                gameRef.current = gameCopy;
-                setFen(gameCopy.fen());
-                setSideToMove(gameCopy.turn());
-                return true;
-            }
-
-            // 2. Fallback: "God Mode" / Manual Setup (Force the move)
-            console.log("Illegal move detected, attempting manual force...");
-
+            // 2. Put on target
             const color = piece[0] as "w" | "b";
             const type = piece[1].toLowerCase() as any;
 
-            // Remove from source
-            gameCopy.remove(sourceSquare as Square);
-            // Place on target
-            const result = gameCopy.put({ type, color }, targetSquare as Square);
+            // Note: put returns true if successful
+            const success = gameCopy.put({ type, color }, targetSquare as Square);
 
-            if (!result) {
-                console.error("Failed to place piece manually");
+            if (!success) {
+                console.error("Put logic failed for", piece);
+                // alert(`Failed to place ${piece} on ${targetSquare}`);
                 return false;
             }
 
-            // Update State
-            console.log("Manual move successful, updating state");
+            // 3. Update State
             gameRef.current = gameCopy;
             const newFen = gameCopy.fen();
-            console.log("New FEN:", newFen);
-
             setFen(newFen);
-            setSideToMove(gameCopy.turn());
             return true;
 
-        } catch (e) {
-            console.error("Move fatal error:", e);
+        } catch (e: any) {
+            console.error("Move Error:", e);
+            alert("Error: " + e.message);
             return false;
         }
     };
