@@ -37,6 +37,7 @@ export default function ChessboardWrapper({ fen, onMove, onSquareRightClick, ori
                 onSquareClick={props.onSquareClick}
                 boardOrientation={orientation}
                 boardWidth={boardSize}
+                areArrowsAllowed={false}
                 customArrows={customArrows}
                 customDarkSquareStyle={{ backgroundColor: "#334155" }} // Slate-700
                 customLightSquareStyle={{ backgroundColor: "#94a3b8" }} // Slate-400

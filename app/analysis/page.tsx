@@ -289,16 +289,26 @@ export default function AnalysisPage() {
             </header>
 
             <main className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto w-full flex-1">
-                <div ref={containerRef} className="flex-1 flex flex-col items-center glass-panel p-6 lg:p-12 min-h-[500px] justify-center relative">
-                    <div className="absolute top-4 right-4 flex gap-2 z-10">
-                        <button onClick={toggleOrientation} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors border border-white/10 text-xs font-medium" title="Flip Board">
-                            Flip Board
+                <div ref={containerRef} className="flex-1 flex flex-col items-center glass-panel p-6 lg:p-12 min-h-[500px] relative">
+                    {/* Control Toolbar - Moved relative to be clickable */}
+                    <div className="flex gap-4 mb-4 z-50 bg-slate-800/80 p-2 rounded-lg border border-slate-700 shadow-xl backdrop-blur-sm">
+                        <button
+                            onClick={toggleOrientation}
+                            className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-md text-slate-300 hover:text-white transition-all text-xs font-medium uppercase tracking-wider border border-white/5"
+                        >
+                            <RefreshCw className="w-4 h-4" /> Flip
                         </button>
-                        <button onClick={resetBoard} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors" title="Reset to Start">
-                            <RefreshCw className="w-5 h-5" />
+                        <button
+                            onClick={resetBoard}
+                            className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-md text-slate-300 hover:text-white transition-all text-xs font-medium uppercase tracking-wider border border-white/5"
+                        >
+                            <RefreshCw className="w-4 h-4 rotate-180" /> Reset
                         </button>
-                        <button onClick={clearBoard} className="p-2 hover:bg-red-500/20 rounded-full text-red-400 hover:text-red-200 transition-colors" title="Clear Board">
-                            <Trash2 className="w-5 h-5" />
+                        <button
+                            onClick={clearBoard}
+                            className="flex items-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 rounded-md text-red-400 hover:text-red-300 transition-all text-xs font-medium uppercase tracking-wider border border-red-500/20"
+                        >
+                            <Trash2 className="w-4 h-4" /> Clear
                         </button>
                     </div>
 
