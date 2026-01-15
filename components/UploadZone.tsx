@@ -37,6 +37,8 @@ export default function UploadZone({ onImageSelected }: UploadZoneProps) {
         e.preventDefault();
         if (e.target.files && e.target.files[0]) {
             handleFile(e.target.files[0]);
+            // Reset input so same file can be selected again if needed
+            e.target.value = "";
         }
     };
 

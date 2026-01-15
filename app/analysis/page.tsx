@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 const ChessboardWrapper = dynamic(() => import("@/components/ChessboardWrapper"), {
     ssr: false,
@@ -8,15 +8,18 @@ const ChessboardWrapper = dynamic(() => import("@/components/ChessboardWrapper")
 });
 import AnalysisPanel from "@/components/AnalysisPanel";
 import UploadZone from "@/components/UploadZone";
-import { Chess, Square } from "chess.js";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { Chess } from "chess.js";
+import { ArrowLeft, RefreshCw, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { ChessEngine } from "@/lib/engine";
 import { processBoardImage } from "@/lib/vision";
 
 export default function AnalysisPage() {
     const [fen, setFen] = useState("start");
-    const [game, setGame] = useState(new Chess());
+    // Use a ref to hold the game instance to avoid staleness in closures, 
+    // but force updates via setFen
+    const gameRef = useRef(new Chess());
+
     const [evalScore, setEvalScore] = useState("0.0");
     const [bestMove, setBestMove] = useState("-");
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -33,7 +36,6 @@ export default function AnalysisPage() {
     // Initialize Engine
     useEffect(() => {
         const engine = new ChessEngine((data) => {
-            // Parse Evaluation
             if (typeof data === 'string') {
                 if (data.startsWith("info") && data.includes("score cp")) {
                     const scoreMatch = data.match(/score cp (-?\d+)/);
@@ -96,33 +98,40 @@ export default function AnalysisPage() {
     }, [fen]);
 
     const handleImageSelected = async (file: File) => {
+        if (isAnalyzing && bestMove === "Scanning...") return; // debounce
+
         setIsAnalyzing(true);
         setBestMove("Scanning...");
         setEvalScore("...");
 
-        const detectedFen = await processBoardImage(file);
+        console.log("Analyzing image:", file.name);
+        try {
+            const detectedFen = await processBoardImage(file);
+            console.log("Detected FEN:", detectedFen);
 
-        if (detectedFen) {
-            try {
-                // When we load a board, we should check whose turn it is
-                // For now, we update the game state
+            if (detectedFen) {
                 const newGame = new Chess(detectedFen);
-                setGame(newGame);
+                gameRef.current = newGame;
                 setFen(detectedFen);
-                setSideToMove(newGame.turn()); // update UI to match FEN
-            } catch (e) {
-                alert("Detected position was invalid. Please try another image.");
+                setSideToMove(newGame.turn());
+                // engine analysis triggers via useEffect
+            } else {
+                alert("Could not detect board. Please try again.");
                 setIsAnalyzing(false);
             }
-        } else {
-            alert("Could not detect board. Please try again.");
+        } catch (e) {
+            console.error(e);
+            alert("Error analyzing image.");
             setIsAnalyzing(false);
         }
     };
 
     const onDrop = (sourceSquare: string, targetSquare: string) => {
         try {
-            const move = game.move({
+            // Create a temporary copy to validate/execute move
+            const gameCopy = new Chess(gameRef.current.fen());
+
+            const move = gameCopy.move({
                 from: sourceSquare,
                 to: targetSquare,
                 promotion: "q",
@@ -130,17 +139,20 @@ export default function AnalysisPage() {
 
             if (move === null) return false;
 
-            setFen(game.fen());
-            setSideToMove(game.turn());
+            // Update ref and state
+            gameRef.current = gameCopy;
+            setFen(gameCopy.fen());
+            setSideToMove(gameCopy.turn());
             return true;
         } catch (e) {
+            console.error("Move error:", e);
             return false;
         }
     };
 
     const resetBoard = () => {
         const newGame = new Chess();
-        setGame(newGame);
+        gameRef.current = newGame;
         setFen("start");
         setArrows([]);
         setBestMove("-");
@@ -154,20 +166,16 @@ export default function AnalysisPage() {
     };
 
     const toggleSideToMove = () => {
-        // To change side to move, we need to manipulate the FEN
         const newSide = sideToMove === "w" ? "b" : "w";
         const fenParts = fen.split(" ");
         if (fenParts.length >= 2) {
             fenParts[1] = newSide;
-            // We also need to reset en passant targets and move clocks usually, 
-            // but let's just keep them for now or reset en passant (-).
-            // Changing side often invalidates en passant.
-            if (fenParts.length >= 4) fenParts[3] = "-"; // En passant target
+            if (fenParts.length >= 4) fenParts[3] = "-"; // Reset en passant
 
             const newFen = fenParts.join(" ");
             try {
                 const newGame = new Chess(newFen);
-                setGame(newGame);
+                gameRef.current = newGame;
                 setFen(newFen);
                 setSideToMove(newSide);
             } catch (e) {
@@ -190,8 +198,6 @@ export default function AnalysisPage() {
             </header>
 
             <main className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto w-full flex-1">
-
-                {/* Left Column: Board */}
                 <div ref={containerRef} className="flex-1 flex flex-col items-center glass-panel p-6 lg:p-12 min-h-[500px] justify-center relative">
                     <div className="absolute top-4 right-4 flex gap-2 z-10">
                         <button onClick={toggleOrientation} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors border border-white/10 text-xs font-medium" title="Flip Board">
@@ -201,6 +207,7 @@ export default function AnalysisPage() {
                             <RefreshCw className="w-5 h-5" />
                         </button>
                     </div>
+                    {/* Key prop ensures re-mount if weird state issues persist, but usually not needed */}
                     <ChessboardWrapper
                         fen={fen}
                         onMove={onDrop}
@@ -210,7 +217,6 @@ export default function AnalysisPage() {
                     />
                 </div>
 
-                {/* Right Column: Tools */}
                 <div className="w-full lg:w-[400px] flex flex-col gap-6">
                     <div className="glass-panel p-4">
                         <div className="mb-4 flex items-center justify-between">
@@ -225,9 +231,13 @@ export default function AnalysisPage() {
                             </button>
                         </div>
                         <UploadZone onImageSelected={handleImageSelected} />
-                        <p className="text-xs text-slate-500 mt-2 text-center">
-                            *Auto-recognition is currently in simulation mode. Upload any image to see a sample board state.
-                        </p>
+
+                        <div className="mt-4 p-3 rounded bg-yellow-500/10 border border-yellow-500/20 flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
+                            <p className="text-xs text-yellow-200/80">
+                                <strong>Note:</strong> Image recognition is currently in <u>Demo Mode</u>. It will always return a sample position (Ruy Lopez) to demonstrate the analysis flow. Real recognition requires a client-side model.
+                            </p>
+                        </div>
                     </div>
 
                     <div className="flex-1 min-h-[300px]">
@@ -238,7 +248,6 @@ export default function AnalysisPage() {
                         />
                     </div>
                 </div>
-
             </main>
         </div>
     );
