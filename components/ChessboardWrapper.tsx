@@ -5,13 +5,14 @@ import { useState, useEffect } from "react";
 
 interface ChessboardWrapperProps {
     fen: string;
-    onMove?: (sourceSquare: string, targetSquare: string) => boolean;
+    onMove?: (sourceSquare: string, targetSquare: string, piece: string) => boolean;
+    onSquareRightClick?: (square: string) => void;
     orientation?: "white" | "black";
     boardWidth?: number;
     customArrows?: [string, string][]; // Tuple of squares e.g. ["e2", "e4"]
 }
 
-export default function ChessboardWrapper({ fen, onMove, orientation = "white", boardWidth = 400, customArrows }: ChessboardWrapperProps) {
+export default function ChessboardWrapper({ fen, onMove, onSquareRightClick, orientation = "white", boardWidth = 400, customArrows }: ChessboardWrapperProps) {
     // Use state to force re-render if needed/styling
     const [boardSize, setBoardSize] = useState(boardWidth);
 
@@ -28,6 +29,7 @@ export default function ChessboardWrapper({ fen, onMove, orientation = "white", 
             <ChessboardComponent
                 position={fen}
                 onPieceDrop={onMove}
+                onSquareRightClick={onSquareRightClick}
                 boardOrientation={orientation}
                 boardWidth={boardSize}
                 customArrows={customArrows}
@@ -35,6 +37,7 @@ export default function ChessboardWrapper({ fen, onMove, orientation = "white", 
                 customLightSquareStyle={{ backgroundColor: "#94a3b8" }} // Slate-400
                 customBoardStyle={{
                     borderRadius: '4px',
+                    cursor: 'pointer',
                 }}
                 animationDuration={200}
                 arePiecesDraggable={true}

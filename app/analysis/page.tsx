@@ -8,8 +8,8 @@ const ChessboardWrapper = dynamic(() => import("@/components/ChessboardWrapper")
 });
 import AnalysisPanel from "@/components/AnalysisPanel";
 import UploadZone from "@/components/UploadZone";
-import { Chess } from "chess.js";
-import { ArrowLeft, RefreshCw, AlertTriangle } from "lucide-react";
+import { Chess, Square } from "chess.js";
+import { ArrowLeft, RefreshCw, AlertTriangle, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { ChessEngine } from "@/lib/engine";
 import { processBoardImage } from "@/lib/vision";
@@ -126,28 +126,53 @@ export default function AnalysisPage() {
         }
     };
 
-    const onDrop = (sourceSquare: string, targetSquare: string) => {
+    const onDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
         try {
-            // Create a temporary copy to validate/execute move
+            // 1. Try Standard Move (Game Logic)
             const gameCopy = new Chess(gameRef.current.fen());
-
             const move = gameCopy.move({
                 from: sourceSquare,
                 to: targetSquare,
                 promotion: "q",
             });
 
-            if (move === null) return false;
+            if (move) {
+                gameRef.current = gameCopy;
+                setFen(gameCopy.fen());
+                setSideToMove(gameCopy.turn());
+                return true;
+            }
 
-            // Update ref and state
+            // 2. Fallback: "God Mode" / Manual Setup (Force the move)
+            // If the standard move failed, we manually edit the board state
+            // piece format from react-chessboard is "wP", "bK" etc.
+
+            const color = piece[0];
+            const type = piece[1].toLowerCase();
+
+            // Remove from source
+            gameCopy.remove(sourceSquare as Square);
+            // Place on target
+            gameCopy.put({ type: type as any, color: color as any }, targetSquare as Square);
+
+            // Update State
             gameRef.current = gameCopy;
             setFen(gameCopy.fen());
-            setSideToMove(gameCopy.turn());
+            // Note: Side to move remains whatever it was, unless we explicitly change it elsewhere
             return true;
+
         } catch (e) {
             console.error("Move error:", e);
             return false;
         }
+    };
+
+    const onRightClick = (square: string) => {
+        // Remove piece on right click
+        const gameCopy = new Chess(gameRef.current.fen());
+        gameCopy.remove(square as Square);
+        gameRef.current = gameCopy;
+        setFen(gameCopy.fen());
     };
 
     const resetBoard = () => {
@@ -159,6 +184,16 @@ export default function AnalysisPage() {
         setEvalScore("0.0");
         setSideToMove("w");
         setOrientation("white");
+    };
+
+    const clearBoard = () => {
+        const newGame = new Chess();
+        newGame.clear();
+        gameRef.current = newGame;
+        setFen(newGame.fen());
+        setArrows([]);
+        setBestMove("-");
+        setEvalScore("-");
     };
 
     const toggleOrientation = () => {
@@ -203,14 +238,18 @@ export default function AnalysisPage() {
                         <button onClick={toggleOrientation} className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors border border-white/10 text-xs font-medium" title="Flip Board">
                             Flip Board
                         </button>
-                        <button onClick={resetBoard} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors" title="Reset Board">
+                        <button onClick={resetBoard} className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors" title="Reset to Start">
                             <RefreshCw className="w-5 h-5" />
+                        </button>
+                        <button onClick={clearBoard} className="p-2 hover:bg-red-500/20 rounded-full text-red-400 hover:text-red-200 transition-colors" title="Clear Board">
+                            <Trash2 className="w-5 h-5" />
                         </button>
                     </div>
                     {/* Key prop ensures re-mount if weird state issues persist, but usually not needed */}
                     <ChessboardWrapper
                         fen={fen}
                         onMove={onDrop}
+                        onSquareRightClick={onRightClick}
                         boardWidth={boardWidth}
                         orientation={orientation}
                         customArrows={arrows}
