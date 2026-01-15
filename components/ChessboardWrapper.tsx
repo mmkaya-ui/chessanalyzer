@@ -24,7 +24,7 @@ export default function ChessboardWrapper({ fen, onMove, orientation = "white", 
     const ChessboardComponent = Chessboard as any;
 
     return (
-        <div className="relative rounded-lg overflow-hidden shadow-2xl shadow-black/50 border-[4px] border-slate-700/50">
+        <div className="relative rounded-lg shadow-2xl shadow-black/50 border-[4px] border-slate-700/50 z-20 bg-slate-800">
             <ChessboardComponent
                 position={fen}
                 onPieceDrop={onMove}
@@ -37,6 +37,7 @@ export default function ChessboardWrapper({ fen, onMove, orientation = "white", 
                     borderRadius: '4px',
                 }}
                 animationDuration={200}
+                arePiecesDraggable={true}
             />
         </div>
     );
