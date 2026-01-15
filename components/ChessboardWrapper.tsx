@@ -27,6 +27,7 @@ export default function ChessboardWrapper({ fen, onMove, onSquareRightClick, ori
     return (
         <div className="relative rounded-lg shadow-2xl shadow-black/50 border-[4px] border-slate-700/50 z-20 bg-slate-800">
             <ChessboardComponent
+                id="AnalysisBoard"
                 position={fen}
                 onPieceDrop={onMove}
                 onSquareRightClick={onSquareRightClick}

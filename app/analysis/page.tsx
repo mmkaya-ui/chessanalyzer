@@ -127,16 +127,24 @@ export default function AnalysisPage() {
     };
 
     const onDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
+        console.log(`Drop attempt: ${sourceSquare} -> ${targetSquare} (${piece})`);
         try {
             // 1. Try Standard Move (Game Logic)
             const gameCopy = new Chess(gameRef.current.fen());
-            const move = gameCopy.move({
-                from: sourceSquare,
-                to: targetSquare,
-                promotion: "q",
-            });
+
+            let move = null;
+            try {
+                move = gameCopy.move({
+                    from: sourceSquare,
+                    to: targetSquare,
+                    promotion: "q",
+                });
+            } catch (err) {
+                // Expected for illegal moves
+            }
 
             if (move) {
+                console.log("Legal move executed");
                 gameRef.current = gameCopy;
                 setFen(gameCopy.fen());
                 setSideToMove(gameCopy.turn());
@@ -144,25 +152,33 @@ export default function AnalysisPage() {
             }
 
             // 2. Fallback: "God Mode" / Manual Setup (Force the move)
-            // If the standard move failed, we manually edit the board state
-            // piece format from react-chessboard is "wP", "bK" etc.
+            console.log("Illegal move detected, attempting manual force...");
 
-            const color = piece[0];
-            const type = piece[1].toLowerCase();
+            const color = piece[0] as "w" | "b";
+            const type = piece[1].toLowerCase() as any;
 
             // Remove from source
             gameCopy.remove(sourceSquare as Square);
             // Place on target
-            gameCopy.put({ type: type as any, color: color as any }, targetSquare as Square);
+            const result = gameCopy.put({ type, color }, targetSquare as Square);
+
+            if (!result) {
+                console.error("Failed to place piece manually");
+                return false;
+            }
 
             // Update State
+            console.log("Manual move successful, updating state");
             gameRef.current = gameCopy;
-            setFen(gameCopy.fen());
-            // Note: Side to move remains whatever it was, unless we explicitly change it elsewhere
+            const newFen = gameCopy.fen();
+            console.log("New FEN:", newFen);
+
+            setFen(newFen);
+            setSideToMove(gameCopy.turn());
             return true;
 
         } catch (e) {
-            console.error("Move error:", e);
+            console.error("Move fatal error:", e);
             return false;
         }
     };
