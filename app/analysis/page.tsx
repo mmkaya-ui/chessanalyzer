@@ -315,10 +315,21 @@ export default function AnalysisPage() {
         }
     };
 
+    // Debug: Log all clicks globally to see what's capturing them
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            console.log("Global Click:", target.tagName, target.className || target.id);
+            setLastLog(`Global Click: <${target.tagName}> ${target.className?.slice(0, 10)}...`);
+        };
+        window.addEventListener('click', handleClick);
+        return () => window.removeEventListener('click', handleClick);
+    }, []);
+
     return (
-        <div className="min-h-screen p-4 md:p-8 flex flex-col animate-fade-in pb-20">
+        <div className="min-h-screen p-4 md:p-8 flex flex-col pb-20">
             <header className="flex items-center justify-between mb-8 max-w-7xl mx-auto w-full">
-                <Link href="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                <Link href="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors cursor-pointer" style={{ zIndex: 1000 }}>
                     <ArrowLeft className="w-5 h-5" />
                     <span className="font-medium">Back to Home</span>
                 </Link>
@@ -332,22 +343,23 @@ export default function AnalysisPage() {
                 <div ref={containerRef} className="flex-1 flex flex-col items-center bg-slate-900/50 rounded-xl border border-slate-700 p-4 lg:p-8 min-h-[500px]">
 
                     {/* Control Toolbar - Standard Flex Flow (Not absolute) */}
-                    <div className="flex gap-4 mb-6 z-10 bg-slate-800 p-2 rounded-lg border border-slate-700 shadow-lg">
+                    {/* Control Toolbar - Standard Flex Flow (Not absolute) */}
+                    <div className="flex gap-4 mb-6 z-10 bg-slate-800 p-2 rounded-lg border border-slate-700 shadow-lg pointer-events-auto">
                         <button
                             onClick={toggleOrientation}
-                            className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-slate-200 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
+                            className="bg-slate-700 hover:bg-slate-600 cursor-pointer flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
                         >
                             <RefreshCw className="w-4 h-4" /> Flip
                         </button>
                         <button
                             onClick={resetBoard}
-                            className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-slate-200 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
+                            className="bg-slate-700 hover:bg-slate-600 cursor-pointer flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
                         >
                             <RefreshCw className="w-4 h-4 rotate-180" /> Reset
                         </button>
                         <button
                             onClick={clearBoard}
-                            className="flex items-center gap-2 px-3 py-2 bg-red-900/50 hover:bg-red-800/50 rounded-md text-red-200 hover:text-red-100 transition-all text-xs font-bold uppercase tracking-wider border border-red-700/50"
+                            className="bg-red-900/50 hover:bg-red-800/50 cursor-pointer flex items-center gap-2 px-3 py-2 rounded-md text-red-200 hover:text-red-100 transition-all text-xs font-bold uppercase tracking-wider border border-red-700/50"
                         >
                             <Trash2 className="w-4 h-4" /> Clear
                         </button>
