@@ -396,18 +396,66 @@ export default function AnalysisPage() {
                         </div>
                     )}
 
-                    {/* Board Container - No Overlays */}
+                    {/* Board Container with Native Drop Mapping */}
                     <div
                         className="relative"
                         style={{ zIndex: 0 }}
                         onDragOver={(e) => {
-                            e.preventDefault(); // Native HTML5 DND requires this to allow dropping
-                            console.log("Native DragOver");
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "copy";
                         }}
                         onDrop={(e) => {
                             e.preventDefault();
-                            console.log("Native Drop", e.clientX, e.clientY);
-                            setLastLog(`Native Drop at ${e.clientX},${e.clientY}`);
+
+                            // 1. Calculate Coordinates relative to board
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = e.clientX - rect.left;
+                            const y = e.clientY - rect.top;
+                            const size = rect.width;
+                            const squareSize = size / 8;
+
+                            // 2. Map to File/Rank (0-7)
+                            const fileIdx = Math.floor(x / squareSize);
+                            const rankIdx = Math.floor(y / squareSize);
+
+                            if (fileIdx < 0 || fileIdx > 7 || rankIdx < 0 || rankIdx > 7) return;
+
+                            // 3. Convert to Algebraic Notation (e.g. "e4")
+                            const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+                            // If orientation is white, rank 0 is 8 (top), rank 7 is 1 (bottom)
+                            // If orientation is black, rank 0 is 1 (top), rank 7 is 8 (bottom)
+                            // White: y=0 -> Rank 8. y=max -> Rank 1.
+
+                            let file = files[fileIdx];
+                            let rank = 8 - rankIdx; // Default White: top is 8
+
+                            if (orientation === "black") {
+                                file = files[7 - fileIdx]; // Reverse file
+                                rank = rankIdx + 1;        // Top is 1
+                            }
+
+                            const targetSquare = `${file}${rank}`;
+                            setLastLog(`Native Drop at ${x.toFixed(0)},${y.toFixed(0)} -> ${targetSquare}`);
+
+                            // 4. Handle Spare Piece Drop
+                            const sparePiece = e.dataTransfer.getData("text/plain");
+                            if (sparePiece && (sparePiece.startsWith("w") || sparePiece.startsWith("b")) && sparePiece.length === 2) {
+                                // It's a spare piece!
+                                console.log(`Placing spare ${sparePiece} on ${targetSquare}`);
+
+                                const gameCopy = new Chess(gameRef.current.fen());
+                                const color = sparePiece[0] as "w" | "b";
+                                const type = sparePiece[1].toLowerCase() as any;
+
+                                gameCopy.remove(targetSquare as Square);
+                                const success = gameCopy.put({ type, color }, targetSquare as Square);
+
+                                if (success) {
+                                    gameRef.current = gameCopy;
+                                    setFen(gameCopy.fen());
+                                    setLastLog(`Placed ${sparePiece} on ${targetSquare}`);
+                                }
+                            }
                         }}
                     >
                         <ChessboardWrapper

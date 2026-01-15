@@ -30,7 +30,12 @@ export default function SparePieces({ onPieceSelect, selectedPiece }: SparePiece
                         <button
                             key={pieceCode}
                             onClick={() => onPieceSelect(pieceCode)}
-                            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all shrink-0 ${isSelected ? "bg-primary shadow-[0_0_15px_rgba(139,92,246,0.5)] scale-110" : "bg-white/5 hover:bg-white/10"}`}
+                            draggable={true}
+                            onDragStart={(e) => {
+                                e.dataTransfer.setData("text/plain", pieceCode);
+                                e.dataTransfer.effectAllowed = "copy";
+                            }}
+                            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all shrink-0 cursor-grab active:cursor-grabbing ${isSelected ? "bg-primary shadow-[0_0_15px_rgba(139,92,246,0.5)] scale-110" : "bg-white/5 hover:bg-white/10"}`}
                             title={`White ${p.name}`}
                         >
                             <img
@@ -55,7 +60,12 @@ export default function SparePieces({ onPieceSelect, selectedPiece }: SparePiece
                         <button
                             key={pieceCode}
                             onClick={() => onPieceSelect(pieceCode)}
-                            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all shrink-0 ${isSelected ? "bg-primary shadow-[0_0_15px_rgba(139,92,246,0.5)] scale-110" : "bg-white/5 hover:bg-white/10"}`}
+                            draggable={true}
+                            onDragStart={(e) => {
+                                e.dataTransfer.setData("text/plain", pieceCode);
+                                e.dataTransfer.effectAllowed = "copy";
+                            }}
+                            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all shrink-0 cursor-grab active:cursor-grabbing ${isSelected ? "bg-primary shadow-[0_0_15px_rgba(139,92,246,0.5)] scale-110" : "bg-white/5 hover:bg-white/10"}`}
                             title={`Black ${p.name}`}
                         >
                             <img
