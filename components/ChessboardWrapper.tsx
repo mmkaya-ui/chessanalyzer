@@ -11,7 +11,7 @@ interface ChessboardWrapperProps {
     onSquareClick?: (square: string) => void;
     orientation?: "white" | "black";
     boardWidth?: number;
-    customArrows?: [string, string][]; // Tuple of squares e.g. ["e2", "e4"]
+    customArrows?: [string, string][];
     areArrowsAllowed?: boolean;
     snapToCursor?: boolean;
     animationDuration?: number;
@@ -27,19 +27,19 @@ export default function ChessboardWrapper({
     customArrows,
     ...props
 }: ChessboardWrapperProps) {
-    // Use state to force re-render if needed/styling
     const [boardSize, setBoardSize] = useState(boardWidth);
 
     useEffect(() => {
-        // Handle resizing if container changes
         setBoardSize(boardWidth);
     }, [boardWidth]);
 
-    // Cast to any to bypass strict prop types in this version
+    // Cast to any to bypass strict prop types if needed
     const ChessboardComponent = Chessboard as any;
 
     return (
-        <div className="relative rounded-lg shadow-2xl shadow-black/50 border-[4px] border-slate-700/50 z-50 bg-slate-800">
+        // KEY CHANGE: Removed the heavy border/shadow container for now to ensure no event capturing
+        // If this works, we add style back on the PARENT div in the Page, not here.
+        <div style={{ width: boardSize, height: boardSize }}>
             <ChessboardComponent
                 id="AnalysisBoard"
                 position={fen}
@@ -49,18 +49,13 @@ export default function ChessboardWrapper({
                 onSquareClick={props.onSquareClick}
                 boardOrientation={orientation}
                 boardWidth={boardSize}
+                arePiecesDraggable={true}
                 areArrowsAllowed={false}
-                snapToCursor={true}
-                animationDuration={200}
                 autoPromoteToQueen={true}
                 customArrows={customArrows}
-                customDarkSquareStyle={{ backgroundColor: "#334155" }} // Slate-700
-                customLightSquareStyle={{ backgroundColor: "#94a3b8" }} // Slate-400
-                customBoardStyle={{
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                }}
-                arePiecesDraggable={true}
+                customDarkSquareStyle={{ backgroundColor: "#334155" }}
+                customLightSquareStyle={{ backgroundColor: "#94a3b8" }}
+                animationDuration={200}
             />
         </div>
     );
