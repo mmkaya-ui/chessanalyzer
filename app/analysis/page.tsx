@@ -30,6 +30,7 @@ export default function AnalysisPage() {
     // Editor State
     const [selectedSpare, setSelectedSpare] = useState<string | null>(null);
     const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
+    const [lastLog, setLastLog] = useState("Ready"); // Debug State
 
     // User preferences
     const [orientation, setOrientation] = useState<"white" | "black">("white");
@@ -136,14 +137,13 @@ export default function AnalysisPage() {
     };
 
     const onDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
-        // alert(`DEBUG: Attempting ${piece} from ${sourceSquare} to ${targetSquare}`);
-        // DEBUGGING: Forced God Mode for everything.
+        setLastLog(`Drop: ${piece} ${sourceSquare}->${targetSquare}`);
 
         try {
             const gameCopy = new Chess(gameRef.current.fen());
 
             // 1. Remove from source
-            gameCopy.remove(sourceSquare as Square);
+            const removed = gameCopy.remove(sourceSquare as Square);
 
             // 2. Put on target
             const color = piece[0] as "w" | "b";
@@ -154,7 +154,7 @@ export default function AnalysisPage() {
 
             if (!success) {
                 console.error("Put logic failed for", piece);
-                // alert(`Failed to place ${piece} on ${targetSquare}`);
+                setLastLog(`Error: Put failed ${piece}->${targetSquare}`);
                 return false;
             }
 
@@ -162,11 +162,12 @@ export default function AnalysisPage() {
             gameRef.current = gameCopy;
             const newFen = gameCopy.fen();
             setFen(newFen);
+            setLastLog(`Success: ${piece} moved`);
             return true;
 
         } catch (e: any) {
             console.error("Move Error:", e);
-            alert("Error: " + e.message);
+            setLastLog(`Exception: ${e.message}`);
             return false;
         }
     };
@@ -310,6 +311,11 @@ export default function AnalysisPage() {
                         >
                             <Trash2 className="w-4 h-4" /> Clear
                         </button>
+                    </div>
+
+                    {/* Visual Debug Log */}
+                    <div className="absolute bottom-2 left-2 z-50 text-[10px] text-slate-500 font-mono bg-black/20 px-2 rounded">
+                        Debug: {lastLog}
                     </div>
 
                     {/* Selected Square Actions (Floating near top for now, or overlaid) */}
