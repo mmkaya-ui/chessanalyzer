@@ -8,6 +8,7 @@ interface ChessboardWrapperProps {
     onMove?: (sourceSquare: string, targetSquare: string, piece: string) => boolean;
     onPieceDragBegin?: (piece: string, sourceSquare: string) => void;
     onSquareRightClick?: (square: string) => void;
+    onSquareClick?: (square: string) => void;
     orientation?: "white" | "black";
     boardWidth?: number;
     customArrows?: [string, string][]; // Tuple of squares e.g. ["e2", "e4"]
@@ -33,6 +34,7 @@ export default function ChessboardWrapper({ fen, onMove, onSquareRightClick, ori
                 onPieceDrop={onMove}
                 onPieceDragBegin={props.onPieceDragBegin}
                 onSquareRightClick={onSquareRightClick}
+                onSquareClick={props.onSquareClick}
                 boardOrientation={orientation}
                 boardWidth={boardSize}
                 customArrows={customArrows}

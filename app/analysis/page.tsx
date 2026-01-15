@@ -8,8 +8,9 @@ const ChessboardWrapper = dynamic(() => import("@/components/ChessboardWrapper")
 });
 import AnalysisPanel from "@/components/AnalysisPanel";
 import UploadZone from "@/components/UploadZone";
+import SparePieces from "@/components/SparePieces";
 import { Chess, Square } from "chess.js";
-import { ArrowLeft, RefreshCw, AlertTriangle, Trash2 } from "lucide-react";
+import { ArrowLeft, RefreshCw, AlertTriangle, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { ChessEngine } from "@/lib/engine";
 import { processBoardImage } from "@/lib/vision";
@@ -25,6 +26,10 @@ export default function AnalysisPage() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [boardWidth, setBoardWidth] = useState(480);
     const [arrows, setArrows] = useState<[string, string][]>([]);
+
+    // Editor State
+    const [selectedSpare, setSelectedSpare] = useState<string | null>(null);
+    const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
 
     // User preferences
     const [orientation, setOrientation] = useState<"white" | "black">("white");
@@ -172,6 +177,58 @@ export default function AnalysisPage() {
         gameCopy.remove(square as Square);
         gameRef.current = gameCopy;
         setFen(gameCopy.fen());
+        setSelectedSquare(null);
+    };
+
+    const onSquareClick = (square: string) => {
+        // 1. If we have a spare piece selected, place it
+        if (selectedSpare) {
+            const gameCopy = new Chess(gameRef.current.fen());
+            const color = selectedSpare[0] as "w" | "b";
+            const type = selectedSpare[1].toLowerCase() as any;
+
+            // Remove whatever was there first (overwrite)
+            gameCopy.remove(square as Square);
+            gameCopy.put({ type, color }, square as Square);
+
+            gameRef.current = gameCopy;
+            setFen(gameCopy.fen());
+            // Don't clear spare selection so we can multi-place
+            return;
+        }
+
+        // 2. If clicking same square, deselect
+        if (selectedSquare === square) {
+            setSelectedSquare(null);
+            return;
+        }
+
+        // 3. If clicking a square with a piece, select it (to show trash icon)
+        const piece = gameRef.current.get(square as Square);
+        if (piece) {
+            setSelectedSquare(square);
+        } else {
+            setSelectedSquare(null);
+        }
+    };
+
+    const handleSpareSelect = (piece: string) => {
+        if (selectedSpare === piece) {
+            setSelectedSpare(null); // Toggle off
+        } else {
+            setSelectedSpare(piece);
+            setSelectedSquare(null); // Clear square selection if picking spare
+        }
+    };
+
+    const removeSelectedPiece = () => {
+        if (selectedSquare) {
+            const gameCopy = new Chess(gameRef.current.fen());
+            gameCopy.remove(selectedSquare as Square);
+            gameRef.current = gameCopy;
+            setFen(gameCopy.fen());
+            setSelectedSquare(null);
+        }
     };
 
     const resetBoard = () => {
@@ -244,12 +301,35 @@ export default function AnalysisPage() {
                             <Trash2 className="w-5 h-5" />
                         </button>
                     </div>
+
+                    {/* Selected Square Actions (Floating near top for now, or overlaid) */}
+                    {selectedSquare && (
+                        <div className="absolute top-4 left-4 z-20 animate-fade-in">
+                            <div className="bg-slate-800 border border-slate-600 rounded-lg p-2 shadow-xl flex items-center gap-2">
+                                <span className="text-xs text-slate-300 font-medium px-1">Selected: {selectedSquare}</span>
+                                <button
+                                    onClick={removeSelectedPiece}
+                                    className="flex items-center gap-1 bg-red-500/20 hover:bg-red-500/40 text-red-300 px-2 py-1 rounded text-xs transition-colors"
+                                >
+                                    <Trash2 className="w-3 h-3" /> Remove
+                                </button>
+                                <button
+                                    onClick={() => setSelectedSquare(null)}
+                                    className="p-1 hover:bg-white/10 rounded text-slate-400"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Key prop ensures re-mount if weird state issues persist, but usually not needed */}
                     <ChessboardWrapper
                         fen={fen}
                         onMove={onDrop}
                         onPieceDragBegin={onDragStart}
                         onSquareRightClick={onRightClick}
+                        onSquareClick={onSquareClick}
                         boardWidth={boardWidth}
                         orientation={orientation}
                         customArrows={arrows}
@@ -257,10 +337,16 @@ export default function AnalysisPage() {
                 </div>
 
                 <div className="w-full lg:w-[400px] flex flex-col gap-6">
+                    {/* Editor Tools */}
+                    <SparePieces
+                        selectedPiece={selectedSpare}
+                        onPieceSelect={handleSpareSelect}
+                    />
+
                     <div className="glass-panel p-4">
                         <div className="mb-4 flex items-center justify-between">
                             <div className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
-                                Setup
+                                Turn
                             </div>
                             <div className="flex bg-slate-800/50 p-1 rounded-lg border border-slate-700">
                                 <button
@@ -268,24 +354,21 @@ export default function AnalysisPage() {
                                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-2 ${sideToMove === 'w' ? 'bg-white text-black shadow-lg' : 'text-slate-400 hover:text-white'}`}
                                 >
                                     <div className={`w-2 h-2 rounded-full ${sideToMove === 'w' ? 'bg-black' : 'bg-white/20'}`}></div>
-                                    White to Move
+                                    White
                                 </button>
                                 <button
                                     onClick={() => sideToMove !== 'b' && toggleSideToMove()}
                                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-2 ${sideToMove === 'b' ? 'bg-black text-white shadow-lg border border-slate-700' : 'text-slate-400 hover:text-white'}`}
                                 >
                                     <div className={`w-2 h-2 rounded-full ${sideToMove === 'b' ? 'bg-white' : 'bg-white/20'}`}></div>
-                                    Black to Move
+                                    Black
                                 </button>
                             </div>
                         </div>
                         <UploadZone onImageSelected={handleImageSelected} />
 
                         <div className="mt-4 p-3 rounded bg-yellow-500/10 border border-yellow-500/20 flex items-start gap-2">
-                            <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
-                            <p className="text-xs text-yellow-200/80">
-                                <strong>Note:</strong> Image recognition is currently in <u>Demo Mode</u>. It will always return a sample position (Ruy Lopez) to demonstrate the analysis flow. Real recognition requires a client-side model.
-                            </p>
+                            {/* Content */}
                         </div>
                     </div>
 
