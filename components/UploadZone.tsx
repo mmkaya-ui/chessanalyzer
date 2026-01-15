@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 import Image from "next/image";
 
@@ -11,6 +11,8 @@ interface UploadZoneProps {
 export default function UploadZone({ onImageSelected }: UploadZoneProps) {
     const [dragActive, setDragActive] = useState(false);
     const [preview, setPreview] = useState<string | null>(null);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleDrag = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -40,6 +42,10 @@ export default function UploadZone({ onImageSelected }: UploadZoneProps) {
             // Reset input so same file can be selected again if needed
             e.target.value = "";
         }
+    };
+
+    const handleClick = () => {
+        fileInputRef.current?.click();
     };
 
     const handleFile = (file: File) => {
@@ -74,10 +80,10 @@ export default function UploadZone({ onImageSelected }: UploadZoneProps) {
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
-                onClick={() => document.getElementById("file-upload")?.click()}
+                onClick={handleClick}
             >
                 <input
-                    id="file-upload"
+                    ref={fileInputRef}
                     type="file"
                     className="hidden"
                     accept="image/*"

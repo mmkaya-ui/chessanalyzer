@@ -223,12 +223,22 @@ export default function AnalysisPage() {
                             <div className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
                                 Setup
                             </div>
-                            <button
-                                onClick={toggleSideToMove}
-                                className={`text-xs px-2 py-1 rounded border transition-colors ${sideToMove === 'w' ? 'bg-white text-black border-white' : 'bg-black text-white border-slate-600'}`}
-                            >
-                                {sideToMove === 'w' ? "White to Move" : "Black to Move"}
-                            </button>
+                            <div className="flex bg-slate-800/50 p-1 rounded-lg border border-slate-700">
+                                <button
+                                    onClick={() => sideToMove !== 'w' && toggleSideToMove()}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-2 ${sideToMove === 'w' ? 'bg-white text-black shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    <div className={`w-2 h-2 rounded-full ${sideToMove === 'w' ? 'bg-black' : 'bg-white/20'}`}></div>
+                                    White to Move
+                                </button>
+                                <button
+                                    onClick={() => sideToMove !== 'b' && toggleSideToMove()}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-2 ${sideToMove === 'b' ? 'bg-black text-white shadow-lg border border-slate-700' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    <div className={`w-2 h-2 rounded-full ${sideToMove === 'b' ? 'bg-white' : 'bg-white/20'}`}></div>
+                                    Black to Move
+                                </button>
+                            </div>
                         </div>
                         <UploadZone onImageSelected={handleImageSelected} />
 
