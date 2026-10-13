@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Chess Vision Analyzer — Board State Recognition & Engine Analysis
+
+An interactive computer vision and chess analysis platform built with **Next.js**, **TensorFlow.js**, and **Stockfish**. It allows players to capture or upload physical chessboards, convert raw images into FEN (Forsyth-Edwards Notation) strings using browser-based neural network inference, and evaluate tactical positions instantly.
+
+---
+
+## Key Features
+
+- **Client-Side Neural Network Inference:** Leverages `@tensorflow/tfjs` in the browser for fast, privacy-preserving board state extraction without heavy server GPUs.
+- **Custom Model & Graph Support:** Capable of loading custom TensorFlow Graph Models (`model.json` + binary weights) directly in the browser via `tf.io.browserFiles`.
+- **Integrated Stockfish Engine:** Deep position evaluation, best move recommendation, and centipawn advantage tracking.
+- **Interactive Board Visualization:** Edit detected board states, play out suggested engine variations, and inspect tactical opportunities.
+
+---
+
+## Pipeline
+
+```mermaid
+flowchart LR
+    A[Board Image / Upload] --> B[TensorFlow.js Preprocessing]
+    B --> C[Neural Network Inference]
+    C --> D[FEN String Generator]
+    D --> E[Interactive Chessboard]
+    D --> F[Stockfish Evaluation Engine]
+    F --> G[Centipawn Score & Best Move]
+```
+
+---
+
+## Tech Stack
+
+- **Framework:** Next.js (TypeScript)
+- **Computer Vision / ML:** TensorFlow.js (`@tensorflow/tfjs`)
+- **Chess Engine:** Stockfish WASM / Native binaries
+- **Styling:** Tailwind CSS
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### 1. Installation
+
+```bash
+git clone https://github.com/mmkaya-ui/chessanalyzer.git
+cd chessanalyzer
+npm install
+```
+
+### 2. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Visit [http://localhost:3000](http://localhost:3000).
