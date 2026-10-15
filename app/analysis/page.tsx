@@ -9,18 +9,41 @@ const ChessboardWrapper = dynamic(() => import("@/components/ChessboardWrapper")
 import AnalysisPanel from "@/components/AnalysisPanel";
 import UploadZone from "@/components/UploadZone";
 import SparePieces from "@/components/SparePieces";
-import ModelUploader from "@/components/ModelUploader";
 import { Chess, Square } from "chess.js";
-import { ArrowLeft, RefreshCw, AlertTriangle, Trash2, X } from "lucide-react";
+import { ArrowLeft, RefreshCw, AlertTriangle, Trash2, X, Copy, Check, Sparkles, KeyRound, Play } from "lucide-react";
 import Link from "next/link";
 import { ChessEngine } from "@/lib/engine";
 import { processBoardImage } from "@/lib/vision";
 
+const PRESETS = [
+    {
+        name: "Standard Start",
+        fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    },
+    {
+        name: "Ruy Lopez",
+        fen: "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3",
+    },
+    {
+        name: "Sicilian Defense",
+        fen: "rnbqkb1r/pp2pppp/3p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R b KQkq - 2 5",
+    },
+    {
+        name: "Morphy's Opera Game",
+        fen: "4kb1r/p2rqppp/5n2/1B2p1B1/4P3/1Q6/PPP2PPP/2KR4 w k - 0 14",
+    },
+    {
+        name: "Lucena Endgame",
+        fen: "1K6/1P1k4/8/8/8/8/r7/2R5 w - - 0 1",
+    },
+];
+
 export default function AnalysisPage() {
-    const [fen, setFen] = useState("start");
-    // Use a ref to hold the game instance to avoid staleness in closures, 
-    // but force updates via setFen
     const gameRef = useRef(new Chess());
+    const [fen, setFen] = useState(() => gameRef.current.fen());
+    const [fenInput, setFenInput] = useState(() => gameRef.current.fen());
+    const [fenError, setFenError] = useState<string | null>(null);
+    const [copiedFen, setCopiedFen] = useState(false);
 
     const [evalScore, setEvalScore] = useState("0.0");
     const [bestMove, setBestMove] = useState("-");
@@ -31,19 +54,50 @@ export default function AnalysisPage() {
     // Editor State
     const [selectedSpare, setSelectedSpare] = useState<string | null>(null);
     const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
-    const [lastLog, setLastLog] = useState("Ready"); // Debug State
+    const [lastLog, setLastLog] = useState("Ready");
 
-    // User preferences
+    // Preferences
     const [orientation, setOrientation] = useState<"white" | "black">("white");
     const [sideToMove, setSideToMove] = useState<"w" | "b">("w");
+
+    // Key settings modal
+    const [showKeyModal, setShowKeyModal] = useState(false);
+    const [apiKey, setApiKey] = useState("");
+    const [hasSavedKey, setHasSavedKey] = useState(false);
+
+    // Notification toast
+    const [toastMessage, setToastMessage] = useState<{ text: string; type: "info" | "error" | "success" } | null>(null);
 
     const engineRef = useRef<ChessEngine | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
+    const showToast = (text: string, type: "info" | "error" | "success" = "info") => {
+        setToastMessage({ text, type });
+        setTimeout(() => setToastMessage(null), 5000);
+    };
+
+    // Load saved API Key from localStorage
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const saved = localStorage.getItem("gemini_api_key") || "";
+            setApiKey(saved);
+            setHasSavedKey(Boolean(saved));
+        }
+    }, []);
+
+    const saveApiKey = () => {
+        if (typeof window !== "undefined") {
+            localStorage.setItem("gemini_api_key", apiKey.trim());
+            setHasSavedKey(Boolean(apiKey.trim()));
+            setShowKeyModal(false);
+            showToast(apiKey.trim() ? "Gemini API key saved!" : "API key cleared.", "success");
+        }
+    };
+
     // Initialize Engine
     useEffect(() => {
         const engine = new ChessEngine((data) => {
-            if (typeof data === 'string') {
+            if (typeof data === "string") {
                 if (data.startsWith("info") && data.includes("score cp")) {
                     const scoreMatch = data.match(/score cp (-?\d+)/);
                     if (scoreMatch) {
@@ -83,18 +137,19 @@ export default function AnalysisPage() {
     useEffect(() => {
         const handleResize = () => {
             if (containerRef.current) {
-                const width = Math.min(600, containerRef.current.clientWidth - 48);
+                const width = Math.min(560, Math.max(300, containerRef.current.clientWidth - 48));
                 setBoardWidth(width);
             }
         };
 
-        window.addEventListener('resize', handleResize);
+        window.addEventListener("resize", handleResize);
         handleResize();
-        return () => window.removeEventListener('resize', handleResize);
+        return () => window.removeEventListener("resize", handleResize);
     }, []);
 
     // Trigger Analysis when FEN changes
     useEffect(() => {
+        setFenInput(fen);
         if (engineRef.current) {
             setIsAnalyzing(true);
             const timeout = setTimeout(() => {
@@ -104,37 +159,71 @@ export default function AnalysisPage() {
         }
     }, [fen]);
 
-    const handleImageSelected = async (file: File) => {
-        if (isAnalyzing && bestMove === "Scanning...") return; // debounce
+    const updateBoardPosition = (newFen: string) => {
+        try {
+            const newGame = new Chess(newFen);
+            gameRef.current = newGame;
+            const fullFen = newGame.fen();
+            setFen(fullFen);
+            setFenInput(fullFen);
+            setSideToMove(newGame.turn());
+            setFenError(null);
+            return true;
+        } catch (e: any) {
+            setFenError(e.message || "Invalid FEN position");
+            return false;
+        }
+    };
 
+    const handleApplyFen = () => {
+        if (!fenInput.trim()) return;
+        const success = updateBoardPosition(fenInput.trim());
+        if (success) {
+            showToast("Position loaded successfully", "success");
+        }
+    };
+
+    const handleCopyFen = () => {
+        if (typeof navigator !== "undefined") {
+            navigator.clipboard.writeText(fen);
+            setCopiedFen(true);
+            setTimeout(() => setCopiedFen(false), 2000);
+            showToast("FEN copied to clipboard", "success");
+        }
+    };
+
+    const handleImageSelected = async (file: File) => {
         setIsAnalyzing(true);
         setBestMove("Scanning...");
         setEvalScore("...");
 
-        console.log("Analyzing image:", file.name);
-        try {
-            const detectedFen = await processBoardImage(file);
-            console.log("Detected FEN:", detectedFen);
+        showToast("Analyzing chessboard image with AI...", "info");
 
-            if (detectedFen) {
-                const newGame = new Chess(detectedFen);
-                gameRef.current = newGame;
-                setFen(detectedFen);
-                setSideToMove(newGame.turn());
-                // engine analysis triggers via useEffect
+        try {
+            const result = await processBoardImage(file, apiKey);
+            if (result.fen) {
+                const success = updateBoardPosition(result.fen);
+                if (success && result.lowConfidence) {
+                    showToast("Low-confidence read from the fallback model. Check every square before trusting the analysis.", "error");
+                } else if (success) {
+                    showToast("Board detected and loaded!", "success");
+                } else {
+                    showToast("Detected board position has illegal structure. Check FEN.", "error");
+                }
             } else {
-                alert("Could not detect board. Please try again.");
-                setIsAnalyzing(false);
+                if (result.needsKey) {
+                    setShowKeyModal(true);
+                    showToast("Gemini API Key required for real image recognition.", "error");
+                } else {
+                    showToast(result.error || "Could not detect board. Try a clearer top-down photo.", "error");
+                }
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert("Error analyzing image.");
+            showToast("Error processing chessboard image.", "error");
+        } finally {
             setIsAnalyzing(false);
         }
-    };
-
-    const onDragStart = (piece: string, sourceSquare: string) => {
-        console.log(`Drag started: ${piece} from ${sourceSquare}`);
     };
 
     const onDrop = (sourceSquare: string, targetSquare: string, piece: string) => {
@@ -143,27 +232,42 @@ export default function AnalysisPage() {
         try {
             const gameCopy = new Chess(gameRef.current.fen());
 
-            // 1. Remove from source
-            const removed = gameCopy.remove(sourceSquare as Square);
+            // 1. Try standard legal chess move first
+            try {
+                const legalMove = gameCopy.move({
+                    from: sourceSquare as Square,
+                    to: targetSquare as Square,
+                    promotion: "q",
+                });
 
-            // 2. Put on target
+                if (legalMove) {
+                    gameRef.current = gameCopy;
+                    const newFen = gameCopy.fen();
+                    setFen(newFen);
+                    setSideToMove(gameCopy.turn());
+                    setLastLog(`Move: ${legalMove.san}`);
+                    return true;
+                }
+            } catch {
+                // Not a legal move, fall through to free placement
+            }
+
+            // 2. God-mode placement / piece adjustment
             const color = piece[0] as "w" | "b";
             const type = piece[1].toLowerCase() as any;
 
-            // Note: put returns true if successful
+            gameCopy.remove(sourceSquare as Square);
             const success = gameCopy.put({ type, color }, targetSquare as Square);
 
             if (!success) {
-                console.error("Put logic failed for", piece);
                 setLastLog(`Error: Put failed ${piece}->${targetSquare}`);
                 return false;
             }
 
-            // 3. Update State
             gameRef.current = gameCopy;
             const newFen = gameCopy.fen();
             setFen(newFen);
-            setLastLog(`Success: ${piece} moved`);
+            setLastLog(`Placed ${piece} on ${targetSquare}`);
             return true;
 
         } catch (e: any) {
@@ -174,7 +278,6 @@ export default function AnalysisPage() {
     };
 
     const onRightClick = (square: string) => {
-        // Remove piece on right click
         const gameCopy = new Chess(gameRef.current.fen());
         gameCopy.remove(square as Square);
         gameRef.current = gameCopy;
@@ -200,49 +303,48 @@ export default function AnalysisPage() {
         }
 
         // 2. MOVE LOGIC (Click-Move)
-        // If we already have a square selected...
         if (selectedSquare) {
-            // If clicking the SAME square, deselect
             if (selectedSquare === square) {
                 setSelectedSquare(null);
                 return;
             }
 
-            // If clicking a NEW square, try to move there!
-            // We use the same 'God Mode' logic: Force Move.
-
-            // Check if source has a piece
-            const sourcePiece = gameRef.current.get(selectedSquare as Square);
-            if (!sourcePiece) {
-                // Should not happen if logic is correct, but safety check
-                setSelectedSquare(square);
-                return;
-            }
-
-            // FORCE MOVE (A -> B)
             try {
                 const gameCopy = new Chess(gameRef.current.fen());
+                // Try legal move first
+                try {
+                    const legal = gameCopy.move({
+                        from: selectedSquare as Square,
+                        to: square as Square,
+                        promotion: "q",
+                    });
+                    if (legal) {
+                        gameRef.current = gameCopy;
+                        setFen(gameCopy.fen());
+                        setSideToMove(gameCopy.turn());
+                        setSelectedSquare(null);
+                        return;
+                    }
+                } catch {
+                    // Not legal, fall through to god-mode reposition
+                }
 
-                // Remove from A
-                gameCopy.remove(selectedSquare as Square);
-                // Put on B (using source piece info)
-                gameCopy.put({ type: sourcePiece.type, color: sourcePiece.color }, square as Square);
+                const sourcePiece = gameRef.current.get(selectedSquare as Square);
+                if (sourcePiece) {
+                    gameCopy.remove(selectedSquare as Square);
+                    gameCopy.put({ type: sourcePiece.type, color: sourcePiece.color }, square as Square);
+                    gameRef.current = gameCopy;
+                    setFen(gameCopy.fen());
+                }
 
-                gameRef.current = gameCopy;
-                setFen(gameCopy.fen());
-                setLastLog(`ClickMove: ${selectedSquare}->${square}`);
-
-                // Clear selection after move
                 setSelectedSquare(null);
                 return;
             } catch (e) {
                 console.error("Click-Move failed", e);
-                // If failed, maybe they just wanted to select the new square?
             }
         }
 
         // 3. SELECTION
-        // If nothing selected (or move failed/skipped), select this square if it has a piece
         const piece = gameRef.current.get(square as Square);
         if (piece) {
             setSelectedSquare(square);
@@ -254,10 +356,10 @@ export default function AnalysisPage() {
 
     const handleSpareSelect = (piece: string) => {
         if (selectedSpare === piece) {
-            setSelectedSpare(null); // Toggle off
+            setSelectedSpare(null);
         } else {
             setSelectedSpare(piece);
-            setSelectedSquare(null); // Clear square selection if picking spare
+            setSelectedSquare(null);
         }
     };
 
@@ -274,12 +376,15 @@ export default function AnalysisPage() {
     const resetBoard = () => {
         const newGame = new Chess();
         gameRef.current = newGame;
-        setFen("start");
+        const initialFen = newGame.fen();
+        setFen(initialFen);
+        setFenInput(initialFen);
         setArrows([]);
         setBestMove("-");
         setEvalScore("0.0");
         setSideToMove("w");
         setOrientation("white");
+        setFenError(null);
     };
 
     const clearBoard = () => {
@@ -287,21 +392,23 @@ export default function AnalysisPage() {
         newGame.clear();
         gameRef.current = newGame;
         setFen(newGame.fen());
+        setFenInput(newGame.fen());
         setArrows([]);
         setBestMove("-");
         setEvalScore("-");
     };
 
     const toggleOrientation = () => {
-        setOrientation(prev => prev === "white" ? "black" : "white");
+        setOrientation((prev) => (prev === "white" ? "black" : "white"));
     };
 
     const toggleSideToMove = () => {
         const newSide = sideToMove === "w" ? "b" : "w";
-        const fenParts = fen.split(" ");
+        const currentFen = gameRef.current.fen();
+        const fenParts = currentFen.split(" ");
         if (fenParts.length >= 2) {
             fenParts[1] = newSide;
-            if (fenParts.length >= 4) fenParts[3] = "-"; // Reset en passant
+            if (fenParts.length >= 4) fenParts[3] = "-"; // Reset en passant target
 
             const newFen = fenParts.join(" ");
             try {
@@ -315,71 +422,138 @@ export default function AnalysisPage() {
         }
     };
 
-    // Debug: Log all clicks and mouse movements globally
-    useEffect(() => {
-        const handleClick = (e: MouseEvent) => {
-            const target = e.target as HTMLElement;
-            console.log("Global Click:", target.tagName, target.className || target.id);
-            setLastLog(`Global Click: <${target.tagName}> ${target.className?.slice(0, 10)}...`);
-        };
-
-        const handleMouseMove = (e: MouseEvent) => {
-            const tracker = document.getElementById('mouse-tracker');
-            if (tracker) {
-                tracker.innerText = `Mouse: ${e.clientX}, ${e.clientY}`;
-            }
-        };
-
-        window.addEventListener('click', handleClick);
-        window.addEventListener('mousemove', handleMouseMove);
-        return () => {
-            window.removeEventListener('click', handleClick);
-            window.removeEventListener('mousemove', handleMouseMove);
-        };
-    }, []);
-
     return (
-        <div className="min-h-screen p-4 md:p-8 flex flex-col pb-20">
-            <header className="flex items-center justify-between mb-8 max-w-7xl mx-auto w-full">
-                <Link href="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors cursor-pointer" style={{ zIndex: 1000 }}>
+        <div className="min-h-screen p-4 md:p-8 flex flex-col pb-20 bg-slate-950 text-slate-100">
+            {/* Header */}
+            <header className="flex items-center justify-between mb-6 max-w-7xl mx-auto w-full">
+                <Link
+                    href="/"
+                    className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
                     <ArrowLeft className="w-5 h-5" />
                     <span className="font-medium">Back to Home</span>
                 </Link>
+
                 <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-                    Analysis Board
+                    Chess AI Board Analysis
                 </h1>
-                <div className="w-24"></div>
+
+                <button
+                    onClick={() => setShowKeyModal(true)}
+                    className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-750 hover:border-slate-600 transition-colors"
+                >
+                    <KeyRound className="w-3.5 h-3.5 text-yellow-400" />
+                    <span>AI Vision API Key</span>
+                    {hasSavedKey && (
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" title="API Key configured"></span>
+                    )}
+                </button>
             </header>
 
-            <main className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto w-full flex-1">
-                <div ref={containerRef} className="flex-1 flex flex-col items-center bg-slate-900/50 rounded-xl border border-slate-700 p-4 lg:p-8 min-h-[500px]">
+            {/* Notification Toast */}
+            {toastMessage && (
+                <div className="max-w-7xl mx-auto w-full mb-4">
+                    <div
+                        className={`p-3 rounded-lg text-sm flex items-center justify-between border ${
+                            toastMessage.type === "error"
+                                ? "bg-red-500/10 border-red-500/30 text-red-300"
+                                : toastMessage.type === "success"
+                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                                : "bg-blue-500/10 border-blue-500/30 text-blue-300"
+                        }`}
+                    >
+                        <span>{toastMessage.text}</span>
+                        <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white ml-2">
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
-                    {/* Control Toolbar - Standard Flex Flow (Not absolute) */}
-                    {/* Control Toolbar - Standard Flex Flow (Not absolute) */}
-                    <div className="flex gap-4 mb-6 z-10 bg-slate-800 p-2 rounded-lg border border-slate-700 shadow-lg pointer-events-auto">
+            {/* FEN Bar & Presets */}
+            <div className="max-w-7xl mx-auto w-full mb-6 bg-slate-900/80 border border-slate-800 p-4 rounded-xl shadow-lg">
+                <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
+                    <div className="flex-1 w-full flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0">FEN</span>
+                        <input
+                            type="text"
+                            value={fenInput}
+                            onChange={(e) => setFenInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleApplyFen()}
+                            className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-purple-500"
+                            placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+                        />
                         <button
-                            onClick={toggleOrientation}
-                            className="bg-slate-700 hover:bg-slate-600 cursor-pointer flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
+                            onClick={handleApplyFen}
+                            className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-3 py-2 rounded-lg transition-colors shrink-0"
                         >
-                            <RefreshCw className="w-4 h-4" /> Flip
+                            Load
                         </button>
                         <button
-                            onClick={resetBoard}
-                            className="bg-slate-700 hover:bg-slate-600 cursor-pointer flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
+                            onClick={handleCopyFen}
+                            title="Copy FEN"
+                            className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-2 rounded-lg border border-slate-700 transition-colors shrink-0 flex items-center gap-1"
                         >
-                            <RefreshCw className="w-4 h-4 rotate-180" /> Reset
-                        </button>
-                        <button
-                            onClick={clearBoard}
-                            className="bg-red-900/50 hover:bg-red-800/50 cursor-pointer flex items-center gap-2 px-3 py-2 rounded-md text-red-200 hover:text-red-100 transition-all text-xs font-bold uppercase tracking-wider border border-red-700/50"
-                        >
-                            <Trash2 className="w-4 h-4" /> Clear
+                            {copiedFen ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                         </button>
                     </div>
 
-                    {/* Selected Piece Actions (Only show if needed) */}
+                    {/* Presets */}
+                    <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+                        <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold shrink-0">
+                            Presets:
+                        </span>
+                        {PRESETS.map((p) => (
+                            <button
+                                key={p.name}
+                                onClick={() => updateBoardPosition(p.fen)}
+                                className="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors"
+                            >
+                                {p.name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                {fenError && (
+                    <div className="text-xs text-red-400 mt-2 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>{fenError}</span>
+                    </div>
+                )}
+            </div>
+
+            {/* Main Content */}
+            <main className="flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto w-full flex-1">
+                {/* Chessboard Column */}
+                <div
+                    ref={containerRef}
+                    className="flex-1 flex flex-col items-center bg-slate-900/50 rounded-xl border border-slate-800 p-4 lg:p-8 min-h-[500px]"
+                >
+                    {/* Control Toolbar */}
+                    <div className="flex flex-wrap gap-3 mb-6 bg-slate-800 p-2 rounded-lg border border-slate-700 shadow-lg">
+                        <button
+                            onClick={toggleOrientation}
+                            className="bg-slate-700 hover:bg-slate-600 flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
+                        >
+                            <RefreshCw className="w-3.5 h-3.5" /> Flip Board
+                        </button>
+                        <button
+                            onClick={resetBoard}
+                            className="bg-slate-700 hover:bg-slate-600 flex items-center gap-2 px-3 py-2 rounded-md text-slate-200 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
+                        >
+                            <RefreshCw className="w-3.5 h-3.5 rotate-180" /> Reset
+                        </button>
+                        <button
+                            onClick={clearBoard}
+                            className="bg-red-900/40 hover:bg-red-800/60 flex items-center gap-2 px-3 py-2 rounded-md text-red-200 hover:text-red-100 transition-all text-xs font-bold uppercase tracking-wider border border-red-700/50"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" /> Clear
+                        </button>
+                    </div>
+
+                    {/* Selected Piece Actions */}
                     {selectedSquare && (
-                        <div className="mb-4 flex items-center gap-3 bg-slate-800 px-4 py-2 rounded-full border border-slate-600 animate-fade-in z-10">
+                        <div className="mb-4 flex items-center gap-3 bg-slate-800 px-4 py-2 rounded-full border border-slate-600 animate-fade-in">
                             <span className="text-sm text-white font-medium">Selected: {selectedSquare}</span>
                             <button
                                 onClick={removeSelectedPiece}
@@ -396,53 +570,39 @@ export default function AnalysisPage() {
                         </div>
                     )}
 
-                    {/* Board Container with Native Drop Mapping */}
+                    {/* Board Container */}
                     <div
-                        className="relative"
-                        style={{ zIndex: 0 }}
+                        className="relative rounded-lg shadow-2xl overflow-hidden border border-slate-700"
                         onDragOver={(e) => {
                             e.preventDefault();
                             e.dataTransfer.dropEffect = "copy";
                         }}
                         onDrop={(e) => {
                             e.preventDefault();
-
-                            // 1. Calculate Coordinates relative to board
                             const rect = e.currentTarget.getBoundingClientRect();
                             const x = e.clientX - rect.left;
                             const y = e.clientY - rect.top;
                             const size = rect.width;
                             const squareSize = size / 8;
 
-                            // 2. Map to File/Rank (0-7)
                             const fileIdx = Math.floor(x / squareSize);
                             const rankIdx = Math.floor(y / squareSize);
 
                             if (fileIdx < 0 || fileIdx > 7 || rankIdx < 0 || rankIdx > 7) return;
 
-                            // 3. Convert to Algebraic Notation (e.g. "e4")
                             const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
-                            // If orientation is white, rank 0 is 8 (top), rank 7 is 1 (bottom)
-                            // If orientation is black, rank 0 is 1 (top), rank 7 is 8 (bottom)
-                            // White: y=0 -> Rank 8. y=max -> Rank 1.
-
                             let file = files[fileIdx];
-                            let rank = 8 - rankIdx; // Default White: top is 8
+                            let rank = 8 - rankIdx;
 
                             if (orientation === "black") {
-                                file = files[7 - fileIdx]; // Reverse file
-                                rank = rankIdx + 1;        // Top is 1
+                                file = files[7 - fileIdx];
+                                rank = rankIdx + 1;
                             }
 
                             const targetSquare = `${file}${rank}`;
-                            setLastLog(`Native Drop at ${x.toFixed(0)},${y.toFixed(0)} -> ${targetSquare}`);
 
-                            // 4. Handle Spare Piece Drop
                             const sparePiece = e.dataTransfer.getData("text/plain");
                             if (sparePiece && (sparePiece.startsWith("w") || sparePiece.startsWith("b")) && sparePiece.length === 2) {
-                                // It's a spare piece!
-                                console.log(`Placing spare ${sparePiece} on ${targetSquare}`);
-
                                 const gameCopy = new Chess(gameRef.current.fen());
                                 const color = sparePiece[0] as "w" | "b";
                                 const type = sparePiece[1].toLowerCase() as any;
@@ -461,7 +621,6 @@ export default function AnalysisPage() {
                         <ChessboardWrapper
                             fen={fen}
                             onMove={onDrop}
-                            onPieceDragBegin={onDragStart}
                             onSquareRightClick={onRightClick}
                             onSquareClick={onSquareClick}
                             boardWidth={boardWidth}
@@ -470,60 +629,122 @@ export default function AnalysisPage() {
                         />
                     </div>
 
-                    {/* Debug Log Below Board */}
-                    <div className="mt-4 text-[10px] text-slate-500 font-mono bg-black/20 p-2 rounded">
-                        <div>Last Action: {lastLog}</div>
-                        <div id="mouse-tracker" className="text-yellow-500">Mouse: Waiting...</div>
+                    {/* Status Info */}
+                    <div className="mt-4 text-[11px] text-slate-400 font-mono bg-slate-900 px-3 py-1.5 rounded border border-slate-800">
+                        Status: <span className="text-slate-300">{lastLog}</span>
                     </div>
                 </div>
 
-                <div className="w-full lg:w-[400px] flex flex-col gap-6">
-                    {/* Editor Tools */}
+                {/* Right Column: Turn, Spare Pieces, Upload & Analysis */}
+                <div className="w-full lg:w-[420px] flex flex-col gap-6">
+                    {/* Spare Pieces Bank */}
                     <SparePieces
                         selectedPiece={selectedSpare}
                         onPieceSelect={handleSpareSelect}
                     />
 
-                    <div className="glass-panel p-4">
-                        <div className="mb-4 flex items-center justify-between">
-                            <div className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
-                                Turn
+                    {/* Tools & Upload */}
+                    <div className="glass-panel p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                                Turn to Move
                             </div>
-                            <div className="flex bg-slate-800/50 p-1 rounded-lg border border-slate-700">
+                            <div className="flex bg-slate-800/80 p-1 rounded-lg border border-slate-700">
                                 <button
-                                    onClick={() => sideToMove !== 'w' && toggleSideToMove()}
-                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-2 ${sideToMove === 'w' ? 'bg-white text-black shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                                    onClick={() => sideToMove !== "w" && toggleSideToMove()}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-2 ${
+                                        sideToMove === "w"
+                                            ? "bg-white text-black font-bold shadow"
+                                            : "text-slate-400 hover:text-white"
+                                    }`}
                                 >
-                                    <div className={`w-2 h-2 rounded-full ${sideToMove === 'w' ? 'bg-black' : 'bg-white/20'}`}></div>
+                                    <div className={`w-2 h-2 rounded-full ${sideToMove === "w" ? "bg-black" : "bg-white/20"}`}></div>
                                     White
                                 </button>
                                 <button
-                                    onClick={() => sideToMove !== 'b' && toggleSideToMove()}
-                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 flex items-center gap-2 ${sideToMove === 'b' ? 'bg-black text-white shadow-lg border border-slate-700' : 'text-slate-400 hover:text-white'}`}
+                                    onClick={() => sideToMove !== "b" && toggleSideToMove()}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-2 ${
+                                        sideToMove === "b"
+                                            ? "bg-black text-white font-bold shadow border border-slate-700"
+                                            : "text-slate-400 hover:text-white"
+                                    }`}
                                 >
-                                    <div className={`w-2 h-2 rounded-full ${sideToMove === 'b' ? 'bg-white' : 'bg-white/20'}`}></div>
+                                    <div className={`w-2 h-2 rounded-full ${sideToMove === "b" ? "bg-white" : "bg-white/20"}`}></div>
                                     Black
                                 </button>
                             </div>
                         </div>
 
-                        <ModelUploader />
-                        <UploadZone onImageSelected={handleImageSelected} />
-
-                        <div className="mt-4 p-3 rounded bg-yellow-500/10 border border-yellow-500/20 flex items-start gap-2">
-                            {/* Content */}
+                        {/* Image Upload Zone */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                                    Photo Recognition
+                                </span>
+                                <span className="text-[10px] text-purple-400 flex items-center gap-1 font-medium">
+                                    <Sparkles className="w-3 h-3" /> Gemini 3.5 Flash Vision
+                                </span>
+                            </div>
+                            <UploadZone onImageSelected={handleImageSelected} />
                         </div>
                     </div>
 
-                    <div className="flex-1 min-h-[300px]">
+                    {/* Stockfish Engine Output */}
+                    <div className="flex-1 min-h-[260px]">
                         <AnalysisPanel
                             evaluation={evalScore}
                             bestMove={bestMove}
                             isAnalyzing={isAnalyzing}
+                            engineName="Stockfish 17.1 WebAssembly"
                         />
                     </div>
                 </div>
             </main>
+
+            {/* API Key Modal */}
+            {showKeyModal && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+                        <button
+                            onClick={() => setShowKeyModal(false)}
+                            className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full hover:bg-slate-800"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="flex items-center gap-2 text-purple-400 mb-2">
+                            <KeyRound className="w-5 h-5" />
+                            <h2 className="text-lg font-bold text-white">Google Gemini API Key</h2>
+                        </div>
+                        <p className="text-xs text-slate-400 mb-4">
+                            Provide your Gemini API key to recognize chess positions directly from photos of physical boards, screens, or diagrams. Stored locally in your browser.
+                        </p>
+
+                        <input
+                            type="password"
+                            value={apiKey}
+                            onChange={(e) => setApiKey(e.target.value)}
+                            placeholder="AIzaSy..."
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-purple-500 mb-4 font-mono"
+                        />
+
+                        <div className="flex items-center justify-end gap-3">
+                            <button
+                                onClick={() => setShowKeyModal(false)}
+                                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={saveApiKey}
+                                className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 text-xs font-bold rounded-lg transition-colors"
+                            >
+                                Save Key
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

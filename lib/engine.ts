@@ -1,6 +1,5 @@
 
-const STOCKFISH_PATH = "/stockfish-17.1-lite-51f59da.js";
-// Note: We'll update the path dynamically if needed, but for now we look for the lite version we saw in the file list.
+const STOCKFISH_PATH = "/stockfish-17.1-lite-single-03e3232.js";
 
 export interface EngineOption {
     name: string;
@@ -11,6 +10,8 @@ export class ChessEngine {
     private worker: Worker | null = null;
     private isReady = false;
     private onMessage: (data: any) => void;
+    private pendingFen: string | null = null;
+    private pendingDepth: number = 15;
 
     constructor(onMessage: (data: any) => void) {
         this.onMessage = onMessage;
@@ -22,28 +23,32 @@ export class ChessEngine {
         try {
             this.worker = new Worker(STOCKFISH_PATH);
 
+            this.worker.onerror = (err) => {
+                console.error("Stockfish Worker Error:", err);
+            };
+
             this.worker.onmessage = (e) => {
                 const msg = e.data;
-                // console.log("Engine:", msg);
-
                 if (msg === "uciok") {
                     this.isReady = true;
+                    // Send basic configuration after uciok
+                    this.setOption("UCI_LimitStrength", "true");
+                    this.setOption("UCI_Elo", "2200");
+                    this.setOption("Skill Level", "20");
+                    this.worker?.postMessage("isready");
+
+                    if (this.pendingFen) {
+                        const fenToAnalyze = this.pendingFen;
+                        const depthToAnalyze = this.pendingDepth;
+                        this.pendingFen = null;
+                        this.analyze(fenToAnalyze, depthToAnalyze);
+                    }
                 }
 
                 this.onMessage(msg);
             };
 
             this.worker.postMessage("uci");
-
-            // Configure for "Human-like" play
-            // Skill Level: 0-20. 20 is max. 10 crashes often with weak moves. 
-            // UCI_LimitStrength: true, UCI_Elo: 1500-2000 for human-like.
-            // We will set a high but not perfect ELO to simulate a strong human.
-
-            this.setOption("UCI_LimitStrength", "true");
-            this.setOption("UCI_Elo", "2200"); // Grandmaster level but potentially fallible
-            this.setOption("Skill Level", "20"); // Keep skill high but capped by ELO
-
         } catch (error) {
             console.error("Failed to load Stockfish:", error);
         }
@@ -57,6 +62,14 @@ export class ChessEngine {
 
     analyze(fen: string, depth: number = 15) {
         if (!this.worker) return;
+
+        if (!this.isReady) {
+            this.pendingFen = fen;
+            this.pendingDepth = depth;
+            return;
+        }
+
+        this.worker.postMessage("stop");
         this.worker.postMessage(`position fen ${fen}`);
         this.worker.postMessage(`go depth ${depth}`);
     }

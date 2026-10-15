@@ -37,18 +37,18 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16 text-left">
           <FeatureCard
             icon={<Upload className="w-8 h-8 text-blue-400" />}
-            title="Instant Recognition"
-            description="Upload screen captures or photos. Our AI reconstructs the board in seconds."
+            title="Photo Recognition"
+            description="Upload screen captures or photos. Gemini AI reconstructs the board in about half a minute, and you can fix any misread squares."
           />
           <FeatureCard
             icon={<Cpu className="w-8 h-8 text-purple-400" />}
             title="Human-like Engine"
-            description="Tuned to play like a grandmaster, not a machine. Natural and undetectable."
+            description="Tuned to play like a master (about 2200 Elo), not a machine. Natural and undetectable."
           />
           <FeatureCard
             icon={<ShieldCheck className="w-8 h-8 text-emerald-400" />}
-            title="Privacy First"
-            description="All analysis runs locally in your browser. zero server-side tracking."
+            title="Engine Runs Locally"
+            description="Stockfish analysis runs in your browser. Photos you upload are sent to Google's Gemini API for recognition."
           />
         </div>
       </div>

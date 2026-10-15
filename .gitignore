@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local Stockfish downloads (not used by the app; the browser build is in public/)
+/stockfish-*.tar
+/stockfish-*.zip
