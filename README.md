@@ -9,7 +9,7 @@ Upload a photo of a chessboard, get a FEN, and see what Stockfish thinks, all in
 ## What It Does
 
 - **Photo to FEN.** Sends the image to Gemini 3.5 Flash and asks for a FEN. The result loads onto the board, where you can correct any misread pieces. See [Photo recognition details](#photo-recognition-details) for retries, the fallback model and test results.
-- **Stockfish in the browser.** Stockfish 17.1 (lite, single-threaded WASM) runs in a Web Worker. No engine server, and no special COOP/COEP headers, because the single-threaded build doesn't need `SharedArrayBuffer`. It shows the evaluation in pawns (`+0.31`, `M3`) and draws the best move as an arrow.
+- **Stockfish in the browser.** Stockfish 17.1 (lite, single-threaded WASM) runs in a Web Worker. No engine server, and no special COOP/COEP headers, because the single-threaded build doesn't need `SharedArrayBuffer`. It shows the evaluation in pawns from White's point of view (`+0.31` = White better, `M-3` = Black mates in 3) and draws the best move as an arrow.
 - **Board editor.** Play legal moves, or rearrange freely using the spare-piece bank, right-click to delete, and a White/Black-to-move toggle. Paste or copy FENs from the bar above the board.
 - **Presets.** Standard start, Ruy Lopez, Sicilian, Morphy's Opera Game, Lucena position.
 
@@ -82,7 +82,7 @@ flowchart TD
 | :--- | :--- |
 | **Framework** | Next.js 16 (App Router, Turbopack) |
 | **Language** | TypeScript 5 |
-| **UI & Styles** | Tailwind CSS, Lucide React |
+| **UI & Styles** | Tailwind CSS v4 (via `@tailwindcss/postcss`), Lucide React |
 | **Board & Rules** | `chess.js`, `react-chessboard` |
 | **Vision AI** | Google Gemini 3.5 Flash (3.1 Flash-Lite as low-confidence fallback) |
 | **Chess Engine** | Stockfish 17.1 single-threaded WebAssembly (7.2 MB WASM) |

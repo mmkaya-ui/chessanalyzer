@@ -98,16 +98,19 @@ export default function AnalysisPage() {
     useEffect(() => {
         const engine = new ChessEngine((data) => {
             if (typeof data === "string") {
+                // Stockfish scores from the side to move's point of view; show White's,
+                // as chess UIs conventionally do (+ = White better, - = Black better).
+                const sign = gameRef.current.turn() === "b" ? -1 : 1;
                 if (data.startsWith("info") && data.includes("score cp")) {
                     const scoreMatch = data.match(/score cp (-?\d+)/);
                     if (scoreMatch) {
-                        const cp = parseInt(scoreMatch[1]);
+                        const cp = parseInt(scoreMatch[1]) * sign;
                         setEvalScore((cp / 100).toFixed(2));
                     }
                 } else if (data.startsWith("info") && data.includes("score mate")) {
                     const mateMatch = data.match(/score mate (-?\d+)/);
                     if (mateMatch) {
-                        setEvalScore(`M${mateMatch[1]}`);
+                        setEvalScore(`M${parseInt(mateMatch[1]) * sign}`);
                     }
                 }
 
