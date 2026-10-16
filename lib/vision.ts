@@ -42,14 +42,3 @@ export async function processBoardImage(
         };
     }
 }
-
-// Fallback for custom model uploader compatibility
-export async function loadCustomModel(jsonFile: File, weightFiles: File[]): Promise<boolean> {
-    try {
-        console.log("Loading custom model files:", jsonFile.name, weightFiles.length);
-        return true;
-    } catch (e) {
-        console.error("Failed to load custom model:", e);
-        return false;
-    }
-}
