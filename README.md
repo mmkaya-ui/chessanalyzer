@@ -30,6 +30,7 @@ How `/api/vision` handles a photo:
 2. If the answer is an error, contains no FEN, or is malformed (a rank that does not add up to 8 squares), it asks **3.5 Flash once more**.
 3. If both attempts fail, **Gemini 3.1 Flash-Lite** answers as a last resort. Its result is flagged `lowConfidence` and the app shows a warning instead of "Board detected!".
 4. An invalid API key (HTTP 400/401/403) fails immediately without retries.
+5. In the app, a detected position that can't be loaded (for example two white kings, or more than 16 pieces or 8 pawns on one side) is kept in the FEN bar with the reason shown, so you can fix the misread squares and press **Load**. Stockfish refuses boards with more than 16 pieces a side, so these are rejected before they reach the engine.
 
 Change the models with `GEMINI_MODELS=primary,fallback` in `.env.local` if Google retires these.
 

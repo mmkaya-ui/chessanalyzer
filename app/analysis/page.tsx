@@ -120,6 +120,12 @@ export default function AnalysisPage() {
                         const from = move.substring(0, 2);
                         const to = move.substring(2, 4);
                         setArrows([[from, to]]);
+                    } else {
+                        // Checkmate, stalemate, or a position Stockfish refuses to search.
+                        // Clear the previous position's move and arrow so they don't linger.
+                        setBestMove("None");
+                        setArrows([]);
+                        setIsAnalyzing(false);
                     }
                 }
             }
@@ -159,7 +165,25 @@ export default function AnalysisPage() {
         }
     }, [fen]);
 
+    // chess.js accepts boards no real game can reach (e.g. 9 pawns or 17 pieces a side,
+    // common in AI misreads), and Stockfish then returns no move. Catch them on load.
+    const materialProblem = (fenStr: string): string | null => {
+        const board = fenStr.trim().split(/\s+/)[0];
+        for (const [side, isSide] of [["White", (c: string) => /[PNBRQK]/.test(c)], ["Black", (c: string) => /[pnbrqk]/.test(c)]] as const) {
+            const pieces = [...board].filter(isSide);
+            const pawns = pieces.filter(c => c.toLowerCase() === "p").length;
+            if (pieces.length > 16) return `${side} has ${pieces.length} pieces (max 16)`;
+            if (pawns > 8) return `${side} has ${pawns} pawns (max 8)`;
+        }
+        return null;
+    };
+
     const updateBoardPosition = (newFen: string) => {
+        const problem = materialProblem(newFen);
+        if (problem) {
+            setFenError(`Invalid FEN: ${problem}`);
+            return false;
+        }
         try {
             const newGame = new Chess(newFen);
             gameRef.current = newGame;
@@ -199,6 +223,10 @@ export default function AnalysisPage() {
 
         showToast("Analyzing chessboard image with AI...", "info");
 
+        // When recognition fails the board doesn't change, so the [fen] effect won't
+        // re-run the engine. Re-analyze the current board to clear "Scanning...".
+        const restoreAnalysis = () => engineRef.current?.analyze(gameRef.current.fen());
+
         try {
             const result = await processBoardImage(file, apiKey);
             if (result.fen) {
@@ -208,9 +236,14 @@ export default function AnalysisPage() {
                 } else if (success) {
                     showToast("Board detected and loaded!", "success");
                 } else {
-                    showToast("Detected board position has illegal structure. Check FEN.", "error");
+                    // Keep the detected FEN so a misread square or two can be fixed by hand.
+                    // updateBoardPosition already set fenError to the chess.js reason.
+                    setFenInput(result.fen);
+                    restoreAnalysis();
+                    showToast("Detected position isn't legal (likely a misread piece). It's in the FEN bar: fix it and press Load.", "error");
                 }
             } else {
+                restoreAnalysis();
                 if (result.needsKey) {
                     setShowKeyModal(true);
                     showToast("Gemini API Key required for real image recognition.", "error");
@@ -220,6 +253,7 @@ export default function AnalysisPage() {
             }
         } catch (e: any) {
             console.error(e);
+            restoreAnalysis();
             showToast("Error processing chessboard image.", "error");
         } finally {
             setIsAnalyzing(false);
