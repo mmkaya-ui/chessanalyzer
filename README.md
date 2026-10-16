@@ -2,7 +2,7 @@
 
 Upload a photo of a chessboard, get a FEN, and see what Stockfish thinks, all in one page. Photo recognition uses Gemini's vision API; the engine runs in your browser as WebAssembly.
 
-> **Status:** The engine, board editor, FEN loader and presets are tested. Photo recognition has been tested only on the included sample photo (an AI-generated image, see below), not yet on real board photos. Treat detected FENs as a starting point and check them on the board before trusting the evaluation.
+> **Status:** The engine, board editor, FEN loader and presets are tested. Photo recognition was benchmarked on 24 labeled board diagrams (book scans, PDF diagrams, Lichess screenshots, renders): 16 of 24 read perfectly and 98.8% of squares were correct. It has not yet been measured on phone photos of a physical board. Treat detected FENs as a starting point and check them on the board before trusting the evaluation.
 
 ---
 
@@ -18,7 +18,7 @@ Upload a photo of a chessboard, get a FEN, and see what Stockfish thinks, all in
 - **Photos leave your machine.** When you use photo recognition, the image goes to a Next.js API route (`/api/vision`), which forwards it to Google's Gemini API. Manual editing, FEN loading and engine analysis stay local.
 - **Your API key.** If you enter it in the app, it is kept in `localStorage` and sent with each recognition request to your own server route. A `GEMINI_API_KEY` in `.env.local` works too and is used when no key is supplied by the browser.
 - **The engine is not at full strength.** `lib/engine.ts` sets `UCI_LimitStrength` with `UCI_Elo 2200`, so move suggestions are those of a strong club/master-level player rather than the engine's maximum. Remove those `setoption` lines to analyze at full strength.
-- **Speed.** In local tests the lite engine reached depth 10-12 on middlegame positions in a few tens of milliseconds. The app requests depth 15 by default. Photo recognition is much slower: about 35 seconds per photo, longer if a retry is needed (see below).
+- **Speed.** In local tests the lite engine reached depth 10-12 on middlegame positions in a few tens of milliseconds. The app requests depth 15 by default. Photo recognition is much slower: about 10-40 seconds per image, longer if a retry is needed (see below).
 
 ---
 
@@ -34,7 +34,23 @@ How `/api/vision` handles a photo:
 
 Change the models with `GEMINI_MODELS=primary,fallback` in `.env.local` if Google retires these.
 
-**Test results on `public/samples/midgame_board.jpg`**, scored against a manual square-by-square reading (58 squares; 6 ambiguous squares excluded; empty squares count):
+**Benchmark on labeled diagrams.** 24 images from `training-images/` (3 per folder, picked at random; each filename encodes the correct position), sent through `/api/vision` with 3.5 Flash. Scored square by square against the filename labels; two labels were wrong (b12 h1, b15 a5) and were corrected after checking the images.
+
+| Source folder | Boards read perfectly |
+| :--- | :--- |
+| `1001` (book diagrams) | 3 / 3 |
+| `b-and-w-pdf` | 2 / 3 |
+| `chess-puzzle-book` | 1 / 3 |
+| `combinations1a` | 3 / 3 |
+| `critical-moments` | 2 / 3 |
+| `generated` (random piece soup) | 1 / 3 |
+| `imagination` | 2 / 3 |
+| `lichess` (screenshots) | 2 / 3 |
+| **Total** | **16 / 24 boards; 1,518 / 1,536 squares (98.8%)** |
+
+Time per image: median 16 s (9-26 s). All 24 were answered by 3.5 Flash on the first attempt. The misses were small: a piece shifted one file, two adjacent pieces swapped, or a piece's color misread (mostly on the busy `generated` boards).
+
+**Test results on `public/samples/midgame_board.jpg`** (an AI-generated photo of a wooden board), scored against a manual square-by-square reading (58 squares; 6 ambiguous squares excluded; empty squares count):
 
 | Setup | Time per photo | Squares correct |
 | :--- | :--- | :--- |
@@ -44,9 +60,9 @@ Change the models with `GEMINI_MODELS=primary,fallback` in `.env.local` if Googl
 
 Caveats:
 
-- The sample photo is AI-generated and shows an **illegal position** (Black has nine pawns), so even a perfect read is not a legal FEN. Accuracy on real board photos is still unmeasured.
+- The sample photo is AI-generated and shows an **illegal position** (Black has nine pawns), so even a perfect read is not a legal FEN. Accuracy on phone photos of a real, physical board is still unmeasured; the diagram benchmark above is the best evidence so far.
 - A wrong answer can still pass every check if each rank adds up to 8 squares. Always check the loaded board.
-- Requests can take 35-80 seconds. Hosting platforms with short function timeouts (for example 10-30 s) will cut them off.
+- Requests take about 10-40 seconds, up to 80 if a retry is needed. Hosting platforms with short function timeouts (for example 10-30 s) will cut them off.
 
 ---
 
